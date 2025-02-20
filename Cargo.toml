@@ -1,0 +1,7 @@
+[package]
+name = "pantera"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pantera-parser = { path = "src/pantera-parser" }
