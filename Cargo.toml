@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 pantera-parser = { path = "src/pantera-parser" }
+pantera-ast = { path = "src/pantera-ast" }
