@@ -33,7 +33,8 @@ pub enum TokenType {
     Is,
     Not,
     Fun,
-    For,
+    Loop,
+    As,
     Nil,
     Print,
     Return,
@@ -44,4 +45,5 @@ pub enum TokenType {
     While,
     Break,
     Eof,
+    Colon
 }

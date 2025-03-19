@@ -1,10 +1,12 @@
 use crate::expression::{Expression, Identifier};
 
+#[derive(Debug)]
 pub enum GlobalStatement {
     Statement(Statement),
     FunctionDeclaration(FunctionDeclarationStatement)
 }
 
+#[derive(Debug)]
 pub enum Statement {
     Print(Box<PrintStatement>),
     Break,
@@ -13,55 +15,71 @@ pub enum Statement {
     Return(Box<ReturnStatement>),
     If(Box<IfStatement>),
     Declaration(DeclarationStatement),
+    MultiDeclaration(MultiDeclarationStatement),
     Loop(Box<LoopStatement>)
 }
 
+#[derive(Debug)]
 pub struct PrintStatement {
-    expr: Expression
+    pub expr: Expression
 }
 
+#[derive(Debug)]
 pub struct BlockStatement {
-    statements: Vec<Statement>
+    pub statements: Vec<Statement>
 }
 
+#[derive(Debug)]
 pub struct ExpressionStatement {
-    expr: Expression
+    pub expr: Expression
 }
 
+#[derive(Debug)]
 pub struct ReturnStatement {
-    value: Option<Expression>
+    pub value: Option<Expression>
 }
 
+#[derive(Debug)]
 pub struct IfStatement {
-    condition: Expression,
-    body: Statement,
-    alternative: Option<Statement>
+    pub condition: Expression,
+    pub body: Statement,
+    pub alternative: Option<Statement>
 }
 
+#[derive(Debug)]
+pub struct MultiDeclarationStatement {
+    pub declarations: Vec<DeclarationStatement>
+}
+
+#[derive(Debug)]
 pub struct DeclarationStatement {
-    kind: DeclarationKind,
-    variable: Identifier,
-    value: Option<Expression>
+    pub kind: DeclarationKind,
+    pub variable: Expression,
+    pub value: Option<Expression>
 }
 
+#[derive(Clone, Debug)]
 pub enum DeclarationKind {
     Var,
     Const
 }
 
+#[derive(Debug)]
 pub struct LoopStatement {
-    body: Statement,
-    range: Option<Range>,
-    alias: Option<Identifier>
+    pub body: Statement,
+    pub range: Option<Range>,
+    pub alias: Option<Expression>
 }
 
+#[derive(Debug)]
 pub struct Range {
-    start: Expression,
-    stop: Expression
+    pub start: Expression,
+    pub stop: Option<Expression>
 }
 
+#[derive(Debug)]
 pub struct FunctionDeclarationStatement {
-    name: Identifier,
-    params: Vec<Identifier>,
-    body: Statement
+    pub name: Identifier,
+    pub params: Vec<Identifier>,
+    pub body: Statement
 }

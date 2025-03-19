@@ -83,6 +83,10 @@ impl Lexer {
                 typ: TokenType::Star,
                 line: self.line,
             }),
+            ':' => self.tokens.push(Token {
+                typ: TokenType::Colon,
+                line: self.line,
+            }),
             ';' => self.tokens.push(Token {
                 typ: TokenType::Semicolon,
                 line: self.line,
@@ -237,8 +241,12 @@ impl Lexer {
                 typ: TokenType::Not,
                 line,
             }),
-            "for" => Some(Token {
-                typ: TokenType::For,
+            "as" => Some(Token {
+                typ: TokenType::As,
+                line
+            }),
+            "loop" => Some(Token {
+                typ: TokenType::Loop,
                 line,
             }),
             "while" => Some(Token {
@@ -392,7 +400,7 @@ mod tests {
         ];
 
         let non_ids = [
-            "1abc", "for", "-", "/", "*"
+            "1abc", "loop", "-", "/", "*"
         ];
 
         for id in ids {
@@ -445,7 +453,8 @@ mod tests {
     fn can_match_keyword() {
 
         let keywords = vec![
-            Pair {key: "for", value: TokenType::For},
+            Pair {key: "as", value: TokenType::As},
+            Pair {key: "loop", value: TokenType::Loop },
             Pair {key: "var", value: TokenType::Var},
             Pair {key: "const", value: TokenType::Const},
             Pair {key: "if", value: TokenType::If},

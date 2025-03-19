@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Expression {
     Binary(Box<BinaryExpression>),
     Unary(Box<UnaryExpression>),
@@ -8,56 +9,67 @@ pub enum Expression {
     Bool(bool),
     Number(f32),
     String(String),
-    Identifier(Identifier),
+    Identifier(String),
     Object(Box<ObjectExpression>),
     Assigment(Box<AssignmentExpression>)
 }
 
+#[derive(Debug)]
 pub struct Identifier {
-    name: String,
-    id: f32
+    pub name: String,
+    pub id: f32
 }
 
+#[derive(Debug)]
 pub struct AssignmentExpression {
-    assignee: Identifier,
-    value: Expression
+    pub assignee: Expression,
+    pub value: Expression
 }
 
+#[derive(Debug)]
 pub struct ObjectExpression {
-    properties: Vec<Expression>,
-    values: Vec<Expression>
+    pub properties: Vec<Expression>,
+    pub values: Vec<Expression>
 }
 
+#[derive(Debug)]
 pub struct MemberExpression {
-    callee: Expression,
-    property: Expression
+    pub callee: Expression,
+    pub property: Expression
 }
 
+#[derive(Debug)]
 pub struct CallExpression {
-    callee: Expression,
-    args: Vec<Expression>
+    pub callee: Expression,
+    pub args: Vec<Expression>
 }
 
+#[derive(Debug)]
 pub struct BinaryExpression {
-    left: Expression,
-    operator: Operator,
-    right: Expression
+    pub left: Expression,
+    pub operator: Operator,
+    pub right: Expression
 }
 
+#[derive(Debug)]
 pub struct UnaryExpression {
-    operator: Operator,
-    expr: Expression
+    pub operator: Operator,
+    pub expr: Expression
 }
 
+#[derive(Debug)]
 pub struct GroupExpression {
-    expr: Expression
+    pub expr: Expression
 }
 
+#[derive(Debug)]
 pub enum Operator {
     And,
     Or,
     Ge,
     Le,
+    Eq,
+    NE,
     Greater,
     Less,
     Plus,
@@ -65,4 +77,13 @@ pub enum Operator {
     Pow,
     Mul,
     Div
+}
+
+impl Expression {
+    pub fn get_identifier(&self) -> Option<&String> {
+        match self {
+            Expression::Identifier(val) => Some(val),
+            _ => None
+        }
+    }
 }

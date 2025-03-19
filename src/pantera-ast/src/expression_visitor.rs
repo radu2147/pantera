@@ -1,4 +1,4 @@
-use crate::expression::{AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, Identifier, MemberExpression, ObjectExpression, UnaryExpression};
+use crate::expression::{AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, UnaryExpression};
 
 pub trait ExpressionVisitor {
     fn visit_expression(&self, expression: &Expression) {
@@ -22,7 +22,7 @@ pub trait ExpressionVisitor {
     fn visit_boolean_expression(&self, value: &bool);
     fn visit_number_expression(&self, value: &f32);
     fn visit_string_expression(&self, value: &String);
-    fn visit_identifier_expression(&self, value: &Identifier);
+    fn visit_identifier_expression(&self, value: &String);
     fn visit_call_expression(&self, value: &CallExpression);
     fn visit_assignment_expression(&self, value: &AssignmentExpression);
     fn visit_binary_expression(&self, value: &BinaryExpression);
@@ -55,7 +55,7 @@ pub trait ExpressionVisitorMut {
     fn visit_boolean_expression(&self, value: &mut bool);
     fn visit_number_expression(&self, value: &mut f32);
     fn visit_string_expression(&self, value: &mut String);
-    fn visit_identifier_expression(&self, value: &mut Identifier);
+    fn visit_identifier_expression(&self, value: &mut String);
     fn visit_call_expression(&self, value: &mut CallExpression);
     fn visit_assignment_expression(&self, value: &mut AssignmentExpression);
     fn visit_binary_expression(&self, value: &mut BinaryExpression);
