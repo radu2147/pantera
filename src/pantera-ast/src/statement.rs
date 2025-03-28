@@ -1,4 +1,6 @@
 use crate::expression::{Expression, Identifier};
+use crate::expression_visitor::ExpressionVisitorMut;
+use crate::statement_visitor::StatementVisitorMut;
 
 #[derive(Debug)]
 pub enum GlobalStatement {
@@ -82,4 +84,10 @@ pub struct FunctionDeclarationStatement {
     pub name: Identifier,
     pub params: Vec<Identifier>,
     pub body: Statement
+}
+
+impl GlobalStatement {
+    pub fn visit<T: StatementVisitorMut>(&self, visitor: &mut T) {
+        visitor.visit_statement(self);
+    }
 }

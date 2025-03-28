@@ -1,3 +1,5 @@
+use crate::expression_visitor::ExpressionVisitorMut;
+
 #[derive(Debug)]
 pub enum Expression {
     Binary(Box<BinaryExpression>),
@@ -85,5 +87,9 @@ impl Expression {
             Expression::Identifier(val) => Some(val),
             _ => None
         }
+    }
+
+    pub fn visit<T: ExpressionVisitorMut>(&self, visitor: &mut T) {
+        visitor.visit_expression(self);
     }
 }
