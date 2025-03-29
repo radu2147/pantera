@@ -3,7 +3,7 @@ use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_GET, OP_MUL, OP_PRINT, OP_SUB};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP};
 use crate::types::Type;
 
 pub struct Compiler {
@@ -33,19 +33,19 @@ impl Compiler {
     }
 
     pub fn emit_number(&mut self, number: f32) {
-        self.emit_byte(OP_GET);
+        self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Number.into());
         self.convert_number_to_bytes(number).into_iter().for_each(|bc| self.emit_byte(bc));
     }
 
     pub fn emit_boolean(&mut self, val: bool) {
-        self.emit_byte(OP_GET);
+        self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Boolean.into());
         self.emit_byte(self.convert_bool_to_byte(val));
     }
 
     pub fn emit_null(&mut self) {
-        self.emit_bytes(OP_GET, Type::Null.into());
+        self.emit_bytes(OP_PUSH, Type::Null.into());
     }
 
     pub fn convert_number_to_bytes(&self, number: f32) -> [u8;4] {
@@ -101,26 +101,29 @@ impl ExpressionVisitorMut for Compiler {
         self.visit_expression(&value.left);
         self.visit_expression(&value.right);
         match &value.operator {
-            Operator::Plus => {
-                self.emit_byte(OP_ADD);
-            },
-            Operator::Minus => {
-                self.emit_byte(OP_SUB);
-            },
-            Operator::Div => {
-                self.emit_byte(OP_DIV);
-            },
-            Operator::Mul => {
-                self.emit_byte(OP_MUL);
-            }
-            _ => {
-                todo!()
-            }
+            Operator::Plus => self.emit_byte(OP_ADD),
+            Operator::Minus => self.emit_byte(OP_SUB),
+            Operator::Div => self.emit_byte(OP_DIV),
+            Operator::Mul => self.emit_byte(OP_MUL),
+            Operator::Pow => self.emit_byte(OP_POW),
+            Operator::Eq => self.emit_byte(OP_EQ),
+            Operator::NE => self.emit_byte(OP_NE),
+            Operator::And => self.emit_byte(OP_AND),
+            Operator::Or => self.emit_byte(OP_OR),
+            Operator::Ge => self.emit_byte(OP_GE),
+            Operator::Le => self.emit_byte(OP_LE),
+            Operator::Greater => self.emit_byte(OP_GR),
+            Operator::Less => self.emit_byte(OP_LS)
         }
     }
 
     fn visit_unary_expression(&mut self, value: &UnaryExpression) {
-        todo!()
+        self.visit_expression(&value.expr);
+        match &value.operator {
+            Operator::Minus => self.emit_byte(OP_UNARY_SUB),
+            Operator::NE => self.emit_byte(OP_UNARY_NOT),
+            _ => panic!("Other unary operator not supported")
+        }
     }
 
     fn visit_group_expression(&mut self, value: &GroupExpression) {
@@ -155,7 +158,8 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_expression_statement(&mut self, stmt: &ExpressionStatement) {
-        todo!()
+        self.visit_expression(&stmt.expr);
+        self.emit_byte(OP_POP);
     }
 
     fn visit_return_statement(&mut self, stmt: &ReturnStatement) {

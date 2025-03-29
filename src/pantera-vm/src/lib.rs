@@ -4,7 +4,7 @@ mod value;
 use pantera_compiler::bytecode::Bytecode;
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_GET, OP_PRINT, OP_ADD, OP_SUB, OP_DIV, OP_MUL};
+use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB};
 use crate::stack::Stack;
 use crate::value::Value;
 
@@ -21,9 +21,9 @@ impl VM {
         match typ {
             Type::Null => Value::Null,
             Type::Boolean => {
+                let val = *self.peek().unwrap();
                 self.advance();
-                let val = self.peek().unwrap();
-                Value::Bool(self.compiler.convert_bool_from_byte(*val))
+                Value::Bool(self.compiler.convert_bool_from_byte(val))
             },
             Type::Number => {
                 let mut bytes: [Bytecode; 4] = [0, 0, 0, 0];
@@ -36,10 +36,37 @@ impl VM {
         }
     }
 
+    fn pow_numbers(base: f32, pow: f32) -> f32 {
+        if pow.fract() == 0.0 {
+            let pw = pow as u32;
+            if pw < 0 {
+                return 1.0 / Self::power(base, pw);
+            }
+            Self::power(base, pw)
+        } else {
+            panic!("Pow being a float number is not supported")
+        }
+    }
+
+    fn power(base: f32, pow: u32) -> f32 {
+        if pow == 0 {
+            return 1.0;
+        }
+        if pow == 1 {
+            return base;
+        }
+
+        if pow % 2 == 0 {
+            return Self::power(base, pow / 2) * Self::power(base, pow / 2);
+        }
+
+        Self::power(base, pow / 2) * Self::power(base, pow / 2) * base
+    }
+
     pub fn execute(&mut self) {
         while !self.is_at_end() {
             match *self.peek().unwrap() {
-                OP_GET => {
+                OP_PUSH => {
                     self.advance();
                     let val = self.read_constant();
                     self.execution_stack.push(val);
@@ -52,7 +79,7 @@ impl VM {
                         Value::Number(num1) => {
                             match val2 {
                                 Value::Number(num2) => {
-                                    self.execution_stack.push(Value::Number(num1 + num2));
+                                    self.execution_stack.push(Value::Number(num2 + num1));
                                 }
                                 _ => panic!("Addition of vairables of different types is not supported")
                             }
@@ -88,7 +115,7 @@ impl VM {
                         Value::Number(num1) => {
                             match val2 {
                                 Value::Number(num2) => {
-                                    self.execution_stack.push(Value::Number(num1 * num2));
+                                    self.execution_stack.push(Value::Number(num2 * num1));
                                 }
                                 _ => panic!("Addition of vairables of different types is not supported")
                             }
@@ -115,6 +142,226 @@ impl VM {
                             todo!()
                         }
                     }
+                },
+                OP_POW => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(num1) => {
+                            match val2 {
+                                Value::Number(num2) => {
+                                    self.execution_stack.push(Value::Number(Self::pow_numbers(num2, num1)));
+                                }
+                                _ => panic!("Pow of variables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("Pow of anything but numbers is not supported")
+                        }
+                    }
+                },
+                OP_EQ => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(num1) => {
+                            match val2 {
+                                Value::Number(num2) => {
+                                    self.execution_stack.push(Value::Bool(num1 == num2));
+                                }
+                                _ => panic!("Equality of variables of different types is not supported")
+                            }
+                        },
+                        Value::Bool(val1) => {
+                            match val2 {
+                                Value::Bool(val2) => {
+                                    self.execution_stack.push(Value::Bool(val1 == val2));
+                                }
+                                _ => panic!("Equality of variables of different types is not supported")
+                            }
+                        },
+                        Value::Null => {
+                            match val2 {
+                                Value::Null => {
+                                    self.execution_stack.push(Value::Bool(true));
+                                }
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false));
+                                }
+                            }
+                        }
+                    }
+                },
+                OP_NE => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(num1) => {
+                            match val2 {
+                                Value::Number(num2) => {
+                                    self.execution_stack.push(Value::Bool(num1 != num2));
+                                }
+                                _ => panic!("Equality of variables of different types is not supported")
+                            }
+                        },
+                        Value::Bool(val1) => {
+                            match val2 {
+                                Value::Bool(val2) => {
+                                    self.execution_stack.push(Value::Bool(val1 != val2));
+                                }
+                                _ => panic!("Equality of variables of different types is not supported")
+                            }
+                        },
+                        Value::Null => {
+                            match val2 {
+                                Value::Null => {
+                                    self.execution_stack.push(Value::Bool(false));
+                                }
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(true));
+                                }
+                            }
+                        }
+                    }
+                },
+                OP_UNARY_NOT => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Bool(val1) => {
+                            self.execution_stack.push(Value::Bool(!val1));
+                        }
+                        _ => {
+                            panic!("Notting a non-boolean value is not allowed");
+                        }
+                    }
+                },
+                OP_UNARY_SUB => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(val1) => {
+                            self.execution_stack.push(Value::Number(-val1));
+                        }
+                        _ => {
+                            panic!("Minusing a non-number value is not allowed");
+                        }
+                    }
+                }
+                OP_AND => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Bool(val1) => {
+                            match val2 {
+                                Value::Bool(val2) => {
+                                    self.execution_stack.push(Value::Bool(val1 && val2));
+                                }
+                                _ => panic!("And of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("And of anything but boolean variables not supported")
+                        }
+                    }
+                },
+                OP_OR => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Bool(val1) => {
+                            match val2 {
+                                Value::Bool(val2) => {
+                                    self.execution_stack.push(Value::Bool(val1 || val2));
+                                }
+                                _ => panic!("And of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("And of anything but boolean variables not supported")
+                        }
+                    }
+                },
+                OP_GE => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(val1) => {
+                            match val2 {
+                                Value::Number(val2) => {
+                                    self.execution_stack.push(Value::Bool(val2 >= val1));
+                                }
+                                _ => panic!("Comparison of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("Comparison of anything but numbers variables not supported")
+                        }
+                    }
+                },
+                OP_GR => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(val1) => {
+                            match val2 {
+                                Value::Number(val2) => {
+                                    self.execution_stack.push(Value::Bool(val2 > val1));
+                                }
+                                _ => panic!("Comparison of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("Comparison of anything but numbers variables not supported")
+                        }
+                    }
+                },
+                OP_LE => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(val1) => {
+                            match val2 {
+                                Value::Number(val2) => {
+                                    self.execution_stack.push(Value::Bool(val2 <= val1));
+                                }
+                                _ => panic!("Comparison of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("Comparison of anything but numbers variables not supported")
+                        }
+                    }
+                },
+                OP_LS => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+                    match val1 {
+                        Value::Number(val1) => {
+                            match val2 {
+                                Value::Number(val2) => {
+                                    self.execution_stack.push(Value::Bool(val2 < val1));
+                                }
+                                _ => panic!("Comparison of vairables of different types is not supported")
+                            }
+                        },
+                        _ => {
+                            panic!("Comparison of anything but numbers variables not supported")
+                        }
+                    }
+                },
+                OP_POP => {
+                    self.advance();
+                    self.execution_stack.pop();
                 }
                 OP_PRINT => {
                     self.advance();

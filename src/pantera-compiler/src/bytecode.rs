@@ -40,5 +40,15 @@ generate_bytecode! (
     OP_MUL,
     OP_POW,
     OP_POP,
-    OP_GET
+    OP_PUSH,
+    OP_EQ,
+    OP_NE,
+    OP_AND,
+    OP_OR,
+    OP_GE,
+    OP_GR,
+    OP_LE,
+    OP_LS,
+    OP_UNARY_SUB,
+    OP_UNARY_NOT
 );
