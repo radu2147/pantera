@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Write};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(f32),
     Bool(bool),

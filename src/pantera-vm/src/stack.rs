@@ -2,24 +2,32 @@ use std::collections::LinkedList;
 
 #[derive(Debug)]
 pub struct Stack<T> {
-    elements: LinkedList<T>
+    elements: Vec<T>
 }
 
 impl<T> Stack<T> {
     pub fn init() -> Self {
         Self{
-            elements: LinkedList::<T>::new()
+            elements: Vec::<T>::with_capacity(50)
         }
     }
     pub fn push(&mut self, el: T) {
-        self.elements.push_front(el);
+        self.elements.push(el);
+    }
+
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.elements.get(index)
+    }
+
+    pub fn set(&mut self, index: usize, el: T) {
+        self.elements[index] = el;
     }
 
     pub fn pop(&mut self) -> Option<T> {
-        self.elements.pop_front()
+        self.elements.pop()
     }
 
     pub fn peek(&self) -> Option<&T> {
-        self.elements.front()
+        self.elements.last()
     }
 }

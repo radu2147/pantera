@@ -1,5 +1,4 @@
 use crate::expression::{Expression, Identifier};
-use crate::expression_visitor::ExpressionVisitorMut;
 use crate::statement_visitor::StatementVisitorMut;
 
 #[derive(Debug)]
@@ -56,7 +55,7 @@ pub struct MultiDeclarationStatement {
 #[derive(Debug)]
 pub struct DeclarationStatement {
     pub kind: DeclarationKind,
-    pub variable: Expression,
+    pub variable: String,
     pub value: Option<Expression>
 }
 

@@ -24,7 +24,7 @@ pub struct Identifier {
 
 #[derive(Debug)]
 pub struct AssignmentExpression {
-    pub assignee: Expression,
+    pub assignee: String,
     pub value: Expression
 }
 

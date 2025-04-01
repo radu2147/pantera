@@ -137,7 +137,7 @@ impl Parser{
             };
         let mut declarations = vec![];
         loop {
-            let assignee = self.parse_expression()?;
+            let TokenType::Identifier(assignee) = self.advance().unwrap().clone().typ else {panic!("Assignee has to be a variable")};
             if self.peek().typ == TokenType::Equal {
                 self.advance();
                 let value = self.parse_expression()?;
@@ -331,7 +331,7 @@ impl Parser{
             let right = self.parse_expression()?;
             if matches!(left, Expression::Identifier(_)) {
                 return Ok(Expression::Assigment(Box::new(AssignmentExpression{
-                    assignee: left,
+                    assignee: left.get_identifier().unwrap().to_string(),
                     value: right,
                 })));
             } else {
@@ -667,7 +667,7 @@ impl Parser{
 #[cfg(test)]
 mod tests {
     use pantera_ast::expression::{Expression, Operator};
-    use pantera_ast::statement::{GlobalStatement, Statement};
+    use pantera_ast::statement::{DeclarationKind, GlobalStatement, Statement};
     use crate::lexer::Lexer;
     use crate::parser::{Parser, FUNCTION_NAME_SEPARATOR};
     
@@ -688,6 +688,23 @@ mod tests {
         let stmt = result.get(0).unwrap();
         if let GlobalStatement::Statement(Statement::Expression(expr)) = stmt {
             assert_eq!(expr.expr.get_identifier().unwrap(), "x");
+            return;
+        }
+        assert!(false);
+    }
+
+    #[test]
+    pub fn test_parse_declaration() {
+        let result  = get_new_parser("var x = 3;");
+        assert_eq!(result.len(), 1);
+
+        let stmt = result.get(0).unwrap();
+        if let GlobalStatement::Statement(Statement::Declaration(ref stmt)) = stmt {
+            if let Some(Expression::Number(x)) = stmt.value {
+                assert_eq!(x, 3f32);
+            }
+            assert_eq!(stmt.variable, "x");
+            assert!(matches!(stmt.kind, DeclarationKind::Var));
             return;
         }
         assert!(false);

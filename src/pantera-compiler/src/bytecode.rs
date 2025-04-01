@@ -50,5 +50,8 @@ generate_bytecode! (
     OP_LE,
     OP_LS,
     OP_UNARY_SUB,
-    OP_UNARY_NOT
+    OP_UNARY_NOT,
+    OP_DECLARE,
+    OP_GET,
+    OP_SET
 );

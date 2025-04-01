@@ -1,19 +1,22 @@
+use std::collections::HashMap;
 use pantera_ast::expression::{AssignmentExpression, BinaryExpression, CallExpression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET};
 use crate::types::Type;
 
 pub struct Compiler {
-    pub code: Vec<Bytecode>
+    pub code: Vec<Bytecode>,
+    pub variables: HashMap<String, Bytecode>
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Compiler {
-            code: vec![]
+            code: vec![],
+            variables: HashMap::new()
         }
     }
     pub fn compile(&mut self, mut parser: Parser) {
@@ -86,7 +89,12 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_identifier_expression(&mut self, value: &String) {
-        todo!()
+        if self.variables.contains_key(value) {
+            self.emit_byte(OP_PUSH);
+            self.emit_bytes(OP_GET, self.variables.get(value).unwrap().clone())
+        } else {
+            panic!("Variable doesn't exist");
+        }
     }
 
     fn visit_call_expression(&mut self, value: &CallExpression) {
@@ -94,7 +102,12 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_assignment_expression(&mut self, value: &AssignmentExpression) {
-        todo!()
+        self.visit_expression(&value.value);
+        if self.variables.contains_key(&value.assignee) {
+            self.emit_bytes(OP_SET, self.variables.get(&value.assignee.to_string()).unwrap().clone());
+        } else {
+            panic!("Variable must be declared first");
+        }
     }
 
     fn visit_binary_expression(&mut self, value: &BinaryExpression) {
@@ -175,10 +188,17 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement) {
-        todo!()
+        self.variables.insert(stmt.variable.clone(), self.variables.len() as Bytecode);
+        self.emit_byte(OP_DECLARE);
+        if let Some(ref val) = stmt.value {
+            self.emit_byte(OP_POP);
+            self.visit_expression(val);
+        }
     }
 
     fn visit_multi_declaration(&mut self, stmt: &MultiDeclarationStatement) {
-        todo!()
+        for stmt in &stmt.declarations {
+            self.visit_declaration_statement(stmt);
+        }
     }
 }

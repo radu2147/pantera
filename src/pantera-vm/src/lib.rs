@@ -1,10 +1,11 @@
 mod stack;
 mod value;
 
+use std::collections::HashMap;
 use pantera_compiler::bytecode::Bytecode;
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB};
+use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE};
 use crate::stack::Stack;
 use crate::value::Value;
 
@@ -68,7 +69,18 @@ impl VM {
             match *self.peek().unwrap() {
                 OP_PUSH => {
                     self.advance();
-                    let val = self.read_constant();
+                    let val = if *self.peek().unwrap() == OP_GET {
+                        self.advance();
+                        let var_key = *self.peek().unwrap() as usize;
+                        let value = self.execution_stack.get(var_key).unwrap().clone();
+                        self.advance();
+
+                        value
+
+                    } else {
+                        self.read_constant()
+                    };
+
                     self.execution_stack.push(val);
                 },
                 OP_ADD => {
@@ -362,11 +374,23 @@ impl VM {
                 OP_POP => {
                     self.advance();
                     self.execution_stack.pop();
-                }
+                },
+                OP_DECLARE => {
+                    self.advance();
+                    self.execution_stack.push(Value::Null);
+                },
                 OP_PRINT => {
                     self.advance();
                     let val = self.execution_stack.pop().unwrap();
                     println!("{val}");
+                },
+                OP_SET => {
+                    self.advance();
+                    let val = self.execution_stack.pop().unwrap();
+                    let var = self.peek().unwrap().clone();
+                    self.advance();
+                    self.execution_stack.push(val.clone());
+                    self.execution_stack.set(var as usize, val);
                 },
                 _ => {
                     todo!();
