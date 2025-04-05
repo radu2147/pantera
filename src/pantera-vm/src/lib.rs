@@ -1,7 +1,6 @@
 mod stack;
 mod value;
 
-use std::collections::HashMap;
 use pantera_compiler::bytecode::Bytecode;
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;

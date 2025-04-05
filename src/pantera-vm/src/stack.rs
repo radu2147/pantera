@@ -1,5 +1,3 @@
-use std::collections::LinkedList;
-
 #[derive(Debug)]
 pub struct Stack<T> {
     elements: Vec<T>
@@ -29,5 +27,9 @@ impl<T> Stack<T> {
 
     pub fn peek(&self) -> Option<&T> {
         self.elements.last()
+    }
+
+    pub fn len(&self) -> usize {
+        self.elements.len()
     }
 }

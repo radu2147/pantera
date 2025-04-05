@@ -9,14 +9,14 @@ use crate::types::Type;
 
 pub struct Compiler {
     pub code: Vec<Bytecode>,
-    pub env: Env
+    pub env: Box<Env>
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Compiler {
             code: vec![],
-            env: Env::new()
+            env: Box::new(Env::new())
         }
     }
     pub fn compile(&mut self, mut parser: Parser) {
@@ -170,7 +170,14 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_block_statement(&mut self, stmt: &BlockStatement) {
-        todo!()
+        self.env = Box::new(Env::new_local(self.env.clone()));
+
+        stmt.statements.iter().for_each(|stmt| self.visit_local_statement(stmt));
+
+        for _ in 0..self.env.variables.len() {
+            self.emit_byte(OP_POP);
+        }
+        self.env = self.env.enclosing.clone().unwrap();
     }
 
     fn visit_expression_statement(&mut self, stmt: &ExpressionStatement) {
@@ -191,11 +198,12 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement) {
-        self.env.set_variable(stmt.variable.clone());
-        self.emit_byte(OP_DECLARE);
         if let Some(ref val) = stmt.value {
-            self.emit_byte(OP_POP);
             self.visit_expression(val);
+            self.env.set_variable(stmt.variable.clone());
+        } else {
+            self.env.set_variable(stmt.variable.clone());
+            self.emit_byte(OP_DECLARE);
         }
     }
 

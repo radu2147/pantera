@@ -3,20 +3,22 @@ use crate::statement::{BlockStatement, DeclarationStatement, ExpressionStatement
 pub trait StatementVisitor {
     fn visit_statement(&self, stmt: &GlobalStatement) {
         match stmt {
-            GlobalStatement::Statement(ref value) => {
-                match value {
-                    Statement::Break => self.visit_break_statement(),
-                    Statement::Print(ref value) => self.visit_print_statement(value),
-                    Statement::Block(ref value) => self.visit_block_statement(value),
-                    Statement::Expression(ref value) => self.visit_expression_statement(value),
-                    Statement::Return(ref value) => self.visit_return_statement(value),
-                    Statement::If(ref value) => self.visit_if_statement(value),
-                    Statement::Declaration(ref value) => self.visit_declaration_statement(value),
-                    Statement::Loop(ref value) => self.visit_loop_statement(value),
-                    Statement::MultiDeclaration(ref value) => self.visit_multi_declaration(value)
-                }
-            }
+            GlobalStatement::Statement(ref value) => self.visit_local_statement(value),
             GlobalStatement::FunctionDeclaration(ref value) => self.visit_function_declaration(value)
+        }
+    }
+
+    fn visit_local_statement(&self, stmt: &Statement) {
+        match stmt {
+            Statement::Break => self.visit_break_statement(),
+            Statement::Print(ref value) => self.visit_print_statement(value),
+            Statement::Block(ref value) => self.visit_block_statement(value),
+            Statement::Expression(ref value) => self.visit_expression_statement(value),
+            Statement::Return(ref value) => self.visit_return_statement(value),
+            Statement::If(ref value) => self.visit_if_statement(value),
+            Statement::Declaration(ref value) => self.visit_declaration_statement(value),
+            Statement::MultiDeclaration(ref value ) => self.visit_multi_declaration(value),
+            Statement::Loop(ref value) => self.visit_loop_statement(value),
         }
     }
 
@@ -35,20 +37,22 @@ pub trait StatementVisitor {
 pub trait StatementVisitorMut {
     fn visit_statement(&mut self, stmt: &GlobalStatement) {
         match stmt {
-            GlobalStatement::Statement(ref value) => {
-                match value {
-                    Statement::Break => self.visit_break_statement(),
-                    Statement::Print(ref value) => self.visit_print_statement(value),
-                    Statement::Block(ref value) => self.visit_block_statement(value),
-                    Statement::Expression(ref value) => self.visit_expression_statement(value),
-                    Statement::Return(ref value) => self.visit_return_statement(value),
-                    Statement::If(ref value) => self.visit_if_statement(value),
-                    Statement::Declaration(ref value) => self.visit_declaration_statement(value),
-                    Statement::MultiDeclaration(ref value ) => self.visit_multi_declaration(value),
-                    Statement::Loop(ref value) => self.visit_loop_statement(value),
-                }
-            }
+            GlobalStatement::Statement(ref value) => self.visit_local_statement(value),
             GlobalStatement::FunctionDeclaration(ref value) => self.visit_function_declaration(value)
+        }
+    }
+
+    fn visit_local_statement(&mut self, stmt: &Statement) {
+        match stmt {
+            Statement::Break => self.visit_break_statement(),
+            Statement::Print(ref value) => self.visit_print_statement(value),
+            Statement::Block(ref value) => self.visit_block_statement(value),
+            Statement::Expression(ref value) => self.visit_expression_statement(value),
+            Statement::Return(ref value) => self.visit_return_statement(value),
+            Statement::If(ref value) => self.visit_if_statement(value),
+            Statement::Declaration(ref value) => self.visit_declaration_statement(value),
+            Statement::MultiDeclaration(ref value ) => self.visit_multi_declaration(value),
+            Statement::Loop(ref value) => self.visit_loop_statement(value),
         }
     }
 
