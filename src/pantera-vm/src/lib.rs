@@ -4,7 +4,7 @@ mod value;
 use pantera_compiler::bytecode::Bytecode;
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE};
+use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE};
 use crate::stack::Stack;
 use crate::value::Value;
 
@@ -82,6 +82,30 @@ impl VM {
 
                     self.execution_stack.push(val);
                 },
+                OP_JUMP_IF_FALSE => {
+                    self.advance();
+                    let mut bytes: [u8;4] = [0;4];
+                    for i in 0..4 {
+                        bytes[i] = *self.peek().unwrap();
+                        self.advance();
+                    }
+
+                    let num = self.compiler.convert_number_from_bytes(bytes) as usize;
+                    let val = self.execution_stack.pop().unwrap();
+                    if let Value::Bool(false) = val {
+                        self.ip = num;
+                    }
+                },
+                OP_JUMP => {
+                    self.advance();
+                    let mut bytes: [u8;4] = [0;4];
+                    for i in 0..4 {
+                        bytes[i] = *self.peek().unwrap();
+                        self.advance();
+                    }
+                    let num = self.compiler.convert_number_from_bytes(bytes) as usize;
+                    self.ip = num;
+                }
                 OP_ADD => {
                     self.advance();
                     let val1 = self.execution_stack.pop().unwrap();

@@ -3,7 +3,7 @@ use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP};
 use crate::env::Env;
 use crate::types::Type;
 
@@ -49,6 +49,14 @@ impl Compiler {
 
     pub fn emit_null(&mut self) {
         self.emit_bytes(OP_PUSH, Type::Null.into());
+    }
+
+    pub fn back_patch(&mut self, index: usize) {
+        let numb = self.convert_number_to_bytes(self.code.len() as f32);
+        self.code[index] = numb[0];
+        self.code[index + 1] = numb[1];
+        self.code[index + 2] = numb[2];
+        self.code[index + 3] = numb[3];
     }
 
     pub fn convert_number_to_bytes(&self, number: f32) -> [u8;4] {
@@ -190,7 +198,34 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_if_statement(&mut self, stmt: &IfStatement) {
-        todo!()
+        self.visit_expression(&stmt.condition);
+        self.emit_byte(OP_JUMP_IF_FALSE);
+
+        let loc = self.code.len();
+
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+
+        self.visit_local_statement(&stmt.body);
+        if let Some(alt) = &stmt.alternative {
+            self.emit_byte(OP_JUMP);
+
+            let loc_else = self.code.len();
+
+            self.emit_byte(0);
+            self.emit_byte(0);
+            self.emit_byte(0);
+            self.emit_byte(0);
+            self.back_patch(loc);
+
+            self.visit_local_statement(alt);
+
+            self.back_patch(loc_else)
+        } else {
+            self.back_patch(loc);
+        }
     }
 
     fn visit_loop_statement(&mut self, stmt: &LoopStatement) {
