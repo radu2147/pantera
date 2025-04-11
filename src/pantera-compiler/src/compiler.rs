@@ -7,14 +7,17 @@ use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRIN
 use crate::env::Env;
 use crate::types::Type;
 
+#[derive(Debug)]
 pub struct Compiler {
     pub code: Vec<Bytecode>,
-    pub env: Box<Env>
+    pub env: Box<Env>,
+    pub break_stmt: Vec<Vec<usize>>
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Compiler {
+            break_stmt: vec![],
             code: vec![],
             env: Box::new(Env::new())
         }
@@ -103,7 +106,7 @@ impl ExpressionVisitorMut for Compiler {
             self.emit_byte(OP_PUSH);
             self.emit_bytes(OP_GET, value)
         } else {
-            panic!("Variable doesn't exist");
+            panic!("Variable '{value}' doesn't exist");
         }
     }
 
@@ -117,7 +120,7 @@ impl ExpressionVisitorMut for Compiler {
         if var.is_some() {
             self.emit_bytes(OP_SET, *var.unwrap());
         } else {
-            panic!("Variable must be declared first");
+            panic!("Variable '{}' must be declared first", &value.assignee);
         }
     }
 
@@ -169,7 +172,18 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_break_statement(&mut self) {
-        todo!()
+        if self.break_stmt.is_empty() {
+            panic!("Break statement outside loop is not allowed");
+        }
+        self.emit_byte(OP_JUMP);
+        let cont_ind = self.break_stmt.len() - 1;
+        if let Some(cont) = self.break_stmt.get_mut(cont_ind) {
+            cont.push(self.code.len());
+        }
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
     }
 
     fn visit_print_statement(&mut self, stmt: &PrintStatement) {
@@ -229,7 +243,18 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_loop_statement(&mut self, stmt: &LoopStatement) {
-        todo!()
+        self.break_stmt.push(vec![]);
+
+        let loc = self.code.len();
+        self.visit_local_statement(&stmt.body);
+        self.emit_byte(OP_JUMP);
+        let beg = self.convert_number_to_bytes(loc as f32);
+        for index in 0..4 {
+            self.emit_byte(beg[index]);
+        }
+
+        let cont = self.break_stmt.pop().unwrap();
+        cont.into_iter().for_each(|break_location| self.back_patch(break_location));
     }
 
     fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement) {

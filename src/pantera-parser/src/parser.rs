@@ -169,67 +169,101 @@ impl Parser{
 
     pub fn parse_loop_stmt(&mut self) -> ParserResult<Statement> {
         self.advance();
+        let mut alias = "it".to_string();
         if self.peek().typ == TokenType::LeftParen {
             let body = self.parse_statement()?;
             Ok(Statement::Loop(Box::from(LoopStatement {
                 body,
-                range: None,
-                alias: None
+                alias
             })))
         } else {
+            let mut iterate_reverse = false;
+            if self.peek().typ == TokenType::Reverse {
+                iterate_reverse = true;
+                self.advance();
+            }
             let range = self.parse_range()?;
             if self.peek().typ == TokenType::As {
                 self.advance();
                 let identifier = self.parse_expression()?;
-                if self.peek().typ == TokenType::LeftParen {
-                    let body = self.parse_statement()?;
-                    Ok(Statement::Loop(Box::from(LoopStatement {
-                        body,
-                        range: Some(range),
-                        alias: Some(identifier)
-                    })))
+                if let Some(id) = identifier.get_identifier() {
+                    alias = id.clone();
                 } else {
-                    Err(ParseError {
+                    return Err(ParseError {
                         line: 1,
-                        message: "Expected { after loop declaration".to_string()
-                    })
+                        message: "Expected identifier after as keyword".to_string()
+                    });
                 }
 
+            }
+            if self.peek().typ == TokenType::LeftParen {
+                let body = self.parse_statement()?;
+                let Statement::Block(stmts) = body else { panic!("Not a block statement"); };
+
+                let [start, stop]: [Expression;2] = if iterate_reverse {[range.stop.unwrap(), range.start]} else {[range.start, range.stop.unwrap()]};
+
+                let mut statements = vec![];
+                let init_clause = Statement::Declaration(
+                    DeclarationStatement{
+                        kind: DeclarationKind::Var,
+                        variable: alias.clone(),
+                        value: Some(start),
+                    }
+                );
+                let mut loop_stmts = vec![];
+                stmts.statements.into_iter().for_each(|st|loop_stmts.push(st));
+
+                statements.push(Statement::Block(Box::from(BlockStatement {
+                    statements: loop_stmts,
+                })));
+
+                statements.push(Statement::Expression(Box::from(ExpressionStatement {
+                    expr: Expression::Assigment(Box::from(AssignmentExpression {
+                        assignee: alias.clone(),
+                        value: Expression::Binary(Box::from(BinaryExpression {
+                            left: Expression::Identifier(alias.clone()),
+                            operator: if iterate_reverse {Operator::Minus} else {Operator::Plus} ,
+                            right: Expression::Number(1f32),
+                        })),
+                    }))
+                })));
+
+                statements.push(Statement::If(Box::from(IfStatement {
+                    condition: Expression::Binary(Box::from(BinaryExpression {
+                        left: Expression::Identifier(alias.clone()),
+                        operator: if iterate_reverse {Operator::Le} else {Operator::Ge},
+                        right: stop,
+                    })),
+                    body: Statement::Break,
+                    alternative: None,
+                })));
+
+                Ok(Statement::Block(Box::from(BlockStatement {
+                    statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
+                        body: Statement::Block(Box::from(BlockStatement{
+                            statements
+                        })),
+                        alias
+                    }))],
+                })))
             } else {
-                if self.peek().typ == TokenType::LeftParen {
-                    let body = self.parse_statement()?;
-                    Ok(Statement::Loop(Box::from(LoopStatement {
-                        body,
-                        range: Some(range),
-                        alias: None
-                    })))
-                } else {
-                    Err(ParseError {
-                        line: 1,
-                        message: "Expected { after loop declaration".to_string()
-                    })
-                }
+                Err(ParseError {
+                    line: 1,
+                    message: "Expected { after loop declaration".to_string()
+                })
             }
         }
     }
 
     pub fn parse_range(&mut self) -> ParserResult<Range> {
         let start = self.parse_expression()?;
-        if self.peek().typ == TokenType::Dot {
+        if self.peek().typ == TokenType::DoubleDot {
             self.advance();
-            if self.peek().typ == TokenType::Dot {
-                self.advance();
-                let stop = self.parse_expression()?;
-                Ok(Range {
-                    start,
-                    stop: Some(stop)
-                })
-            } else {
-                Err(ParseError{
-                    line: 1,
-                    message: "Should not happen".to_string()
-                })
-            }
+            let stop = self.parse_expression()?;
+            Ok(Range {
+                start,
+                stop: Some(stop)
+            })
         } else {
             Ok(Range{
                 start,
@@ -723,6 +757,21 @@ mod tests {
             } else {
                 assert!(false);
             }
+            return;
+        }
+        assert!(false);
+    }
+
+    #[test]
+    pub fn test_loop_statement() {
+        let result = get_new_parser("loop 1..3 {print it;}");
+        assert_eq!(result.len(), 1);
+        let stmt = result.get(0).unwrap();
+        if let GlobalStatement::Statement(Statement::Block(loop_stmt)) = stmt {
+            assert_eq!(loop_stmt.statements.len(), 2);
+
+            assert!(loop_stmt.statements.get(0).is_some_and(|x| matches!(*x, Statement::Declaration(_))));
+            assert!(loop_stmt.statements.get(1).is_some_and(|x| matches!(*x, Statement::Loop(_))));
             return;
         }
         assert!(false);

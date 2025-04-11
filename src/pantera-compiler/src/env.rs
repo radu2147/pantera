@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::bytecode::Bytecode;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Env {
     pub enclosing: Option<Box<Env>>,
     pub variables: HashMap<String, Bytecode>

@@ -1,6 +1,6 @@
 use crate::expression_visitor::ExpressionVisitorMut;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Binary(Box<BinaryExpression>),
     Unary(Box<UnaryExpression>),
@@ -16,55 +16,55 @@ pub enum Expression {
     Assigment(Box<AssignmentExpression>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub name: String,
     pub id: f32
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssignmentExpression {
     pub assignee: String,
     pub value: Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ObjectExpression {
     pub properties: Vec<Expression>,
     pub values: Vec<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemberExpression {
     pub callee: Expression,
     pub property: Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CallExpression {
     pub callee: Expression,
     pub args: Vec<Expression>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpression {
     pub left: Expression,
     pub operator: Operator,
     pub right: Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpression {
     pub operator: Operator,
     pub expr: Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupExpression {
     pub expr: Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     And,
     Or,

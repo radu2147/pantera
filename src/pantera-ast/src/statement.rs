@@ -68,11 +68,10 @@ pub enum DeclarationKind {
 #[derive(Debug)]
 pub struct LoopStatement {
     pub body: Statement,
-    pub range: Option<Range>,
-    pub alias: Option<Expression>
+    pub alias: String
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Range {
     pub start: Expression,
     pub stop: Option<Expression>

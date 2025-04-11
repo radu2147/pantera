@@ -67,10 +67,19 @@ impl Lexer {
                 typ: TokenType::Comma,
                 line: self.line,
             }),
-            '.' => self.tokens.push(Token {
-                typ: TokenType::Dot,
-                line: self.line,
-            }),
+            '.' => {
+                if self.match_char('.') {
+                    self.tokens.push(Token {
+                        typ: TokenType::DoubleDot,
+                        line: self.line,
+                    });
+                } else {
+                    self.tokens.push(Token {
+                        typ: TokenType::Dot,
+                        line: self.line,
+                    });
+                }
+            },
             '+' => self.tokens.push(Token {
                 typ: TokenType::Plus,
                 line: self.line,
@@ -209,6 +218,10 @@ impl Lexer {
 
     fn get_keyword_token(&self, identifier_string: &str, line: u128) -> Option<Token> {
         match identifier_string {
+            "reverse" => Some(Token {
+                typ: TokenType::Reverse,
+                line,
+            }),
             "if" => Some(Token {
                 typ: TokenType::If,
                 line,
