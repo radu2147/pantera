@@ -11,7 +11,7 @@ use crate::value::Value;
 
 pub struct VM {
     compiler: Compiler,
-    execution_stack: Stack<Value>,
+    execution_stack: Stack,
     ip: usize,
     globals: HashMap<u16, Value>
 }
@@ -456,7 +456,7 @@ impl VM {
     pub fn init(compiler: Compiler) -> Self {
         Self {
             compiler,
-            execution_stack: Stack::<Value>::init(),
+            execution_stack: Stack::init(),
             ip: 0usize,
             globals: HashMap::new()
         }

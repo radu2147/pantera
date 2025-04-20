@@ -1,35 +1,48 @@
+use crate::value::Value;
+
 #[derive(Debug)]
-pub struct Stack<T> {
-    elements: Vec<T>
+pub struct Stack {
+    elements: Vec<Value>,
+    top: usize
 }
 
-impl<T> Stack<T> {
+impl Stack {
     pub fn init() -> Self {
         Self{
-            elements: Vec::<T>::with_capacity(50)
+            elements: vec![Value::Null; 50],
+            top: 0usize
         }
     }
-    pub fn push(&mut self, el: T) {
-        self.elements.push(el);
+    pub fn push(&mut self, el: Value) {
+        self.elements[self.top] = el;
+        self.top += 1;
     }
 
-    pub fn get(&self, index: usize) -> Option<&T> {
+    pub fn get(&self, index: usize) -> Option<&Value> {
         self.elements.get(index)
     }
 
-    pub fn set(&mut self, index: usize, el: T) {
+    pub fn set(&mut self, index: usize, el: Value) {
         self.elements[index] = el;
     }
 
-    pub fn pop(&mut self) -> Option<T> {
-        self.elements.pop()
+    pub fn pop(&mut self) -> Option<Value> {
+        if self.top == 0 {
+            return None;
+        }
+        let el = self.elements[self.top - 1].clone();
+        self.top -= 1;
+        Some(el)
     }
 
-    pub fn peek(&self) -> Option<&T> {
-        self.elements.last()
+    pub fn peek(&self) -> Option<&Value> {
+        if self.top == 0 {
+            return None;
+        }
+        Some(&self.elements[self.top])
     }
 
     pub fn len(&self) -> usize {
-        self.elements.len()
+        self.top
     }
 }
