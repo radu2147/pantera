@@ -1,17 +1,19 @@
 mod stack;
 mod value;
 
-use pantera_compiler::bytecode::Bytecode;
+use std::collections::HashMap;
+use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE};
+use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL};
 use crate::stack::Stack;
 use crate::value::Value;
 
 pub struct VM {
     compiler: Compiler,
     execution_stack: Stack<Value>,
-    ip: usize
+    ip: usize,
+    globals: HashMap<u16, Value>
 }
 
 impl VM {
@@ -63,6 +65,16 @@ impl VM {
         Self::power(base, pow / 2) * Self::power(base, pow / 2) * base
     }
 
+    pub fn read_global(&mut self) -> u16 {
+        let mut var_key = [0u8; 2];
+        for i in 0..2 {
+            var_key[i] = *self.peek().unwrap();
+            self.advance();
+        }
+
+        u16::from_le_bytes(var_key)
+    }
+
     pub fn execute(&mut self) {
         while !self.is_at_end() {
             match *self.peek().unwrap() {
@@ -76,7 +88,12 @@ impl VM {
 
                         value
 
-                    } else {
+                    } else if *self.peek().unwrap() == OP_GET_GLOBAL {
+                        self.advance();
+                        let var_key = self.read_global();
+
+                        self.globals.get(&var_key).unwrap_or_else(|| {panic!("Variable doesn't exist")}).clone()
+                    } else{
                         self.read_constant()
                     };
 
@@ -402,6 +419,13 @@ impl VM {
                     self.advance();
                     self.execution_stack.push(Value::Null);
                 },
+                OP_DECLARE_GLOBAL => {
+                    self.advance();
+                    let var_key = self.read_global();
+                    let val = self.execution_stack.pop().unwrap();
+
+                    self.globals.insert(var_key, val);
+                }
                 OP_PRINT => {
                     self.advance();
                     let val = self.execution_stack.pop().unwrap();
@@ -415,6 +439,13 @@ impl VM {
                     self.execution_stack.push(val.clone());
                     self.execution_stack.set(var as usize, val);
                 },
+                OP_SET_GLOBAL => {
+                    self.advance();
+                    let val = self.execution_stack.pop().unwrap();
+                    let var = self.read_global();
+                    self.execution_stack.push(val.clone());
+                    self.globals.insert(var, val);
+                }
                 _ => {
                     todo!();
                 }
@@ -426,7 +457,8 @@ impl VM {
         Self {
             compiler,
             execution_stack: Stack::<Value>::init(),
-            ip: 0usize
+            ip: 0usize,
+            globals: HashMap::new()
         }
     }
 

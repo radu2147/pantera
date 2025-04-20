@@ -52,8 +52,11 @@ generate_bytecode! (
     OP_UNARY_SUB,
     OP_UNARY_NOT,
     OP_DECLARE,
+    OP_DECLARE_GLOBAL,
     OP_GET,
+    OP_GET_GLOBAL,
     OP_SET,
+    OP_SET_GLOBAL,
     OP_JUMP_IF_FALSE,
     OP_JUMP
 );

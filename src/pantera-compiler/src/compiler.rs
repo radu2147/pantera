@@ -1,17 +1,27 @@
+use std::collections::HashMap;
 use pantera_ast::expression::{AssignmentExpression, BinaryExpression, CallExpression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL};
 use crate::env::Env;
 use crate::types::Type;
+
+#[derive(Debug, Clone)]
+pub enum Context {
+    Global,
+    Block,
+    Function
+}
 
 #[derive(Debug)]
 pub struct Compiler {
     pub code: Vec<Bytecode>,
     pub env: Box<Env>,
-    pub break_stmt: Vec<Vec<usize>>
+    pub break_stmt: Vec<Vec<usize>>,
+    pub context: Context,
+    pub globals: HashMap<String, u16>
 }
 
 impl Compiler {
@@ -19,7 +29,9 @@ impl Compiler {
         Compiler {
             break_stmt: vec![],
             code: vec![],
-            env: Box::new(Env::new())
+            env: Box::new(Env::new()),
+            context: Context::Global,
+            globals: HashMap::new()
         }
     }
     pub fn compile(&mut self, mut parser: Parser) {
@@ -52,6 +64,16 @@ impl Compiler {
 
     pub fn emit_null(&mut self) {
         self.emit_bytes(OP_PUSH, Type::Null.into());
+    }
+
+    pub fn emit_hash(&mut self, variable: String) {
+        if let Some(key) = self.globals.get(&variable) {
+            key.to_le_bytes().iter().for_each(|bt|self.emit_byte(*bt));
+            return;
+        }
+        let val = self.globals.len() as u16;
+        self.globals.insert(variable, val as u16);
+        val.to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
     pub fn back_patch(&mut self, index: usize) {
@@ -104,9 +126,11 @@ impl ExpressionVisitorMut for Compiler {
         if var.is_some() {
             let value = *var.unwrap();
             self.emit_byte(OP_PUSH);
-            self.emit_bytes(OP_GET, value)
+            self.emit_bytes(OP_GET, value);
         } else {
-            panic!("Variable '{value}' doesn't exist");
+            self.emit_byte(OP_PUSH);
+            self.emit_byte(OP_GET_GLOBAL);
+            self.emit_hash(value.clone());
         }
     }
 
@@ -120,7 +144,8 @@ impl ExpressionVisitorMut for Compiler {
         if var.is_some() {
             self.emit_bytes(OP_SET, *var.unwrap());
         } else {
-            panic!("Variable '{}' must be declared first", &value.assignee);
+            self.emit_byte(OP_SET_GLOBAL);
+            self.emit_hash(value.assignee.clone());
         }
     }
 
@@ -192,6 +217,9 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_block_statement(&mut self, stmt: &BlockStatement) {
+        let old_context = self.context.clone();
+        self.context = Context::Block;
+
         self.env = Box::new(Env::new_local(self.env.clone()));
 
         stmt.statements.iter().for_each(|stmt| self.visit_local_statement(stmt));
@@ -200,6 +228,7 @@ impl StatementVisitorMut for Compiler {
             self.emit_byte(OP_POP);
         }
         self.env = self.env.enclosing.clone().unwrap();
+        self.context = old_context;
     }
 
     fn visit_expression_statement(&mut self, stmt: &ExpressionStatement) {
@@ -258,7 +287,16 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement) {
-        if let Some(ref val) = stmt.value {
+        if matches!(self.context, Context::Global) {
+            if let Some(ref val) = stmt.value {
+                self.visit_expression(val);
+            } else {
+                self.emit_null();
+            }
+            self.emit_byte(OP_DECLARE_GLOBAL);
+            self.emit_hash(stmt.variable.clone());
+        }
+        else if let Some(ref val) = stmt.value {
             self.visit_expression(val);
             self.env.set_variable(stmt.variable.clone());
         } else {
