@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL};
+use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
 use crate::stack::Stack;
 use crate::value::Value;
 
@@ -34,6 +34,16 @@ impl VM {
                     self.advance();
                 }
                 Value::Number(self.compiler.convert_number_from_bytes(bytes))
+            },
+            Type::Function => {
+                let mut bytes: [Bytecode; 4] = [0, 0, 0, 0];
+                for i in 0..4 {
+                    bytes[i] = *self.peek().unwrap();
+                    self.advance();
+                }
+                let arity = *self.peek().unwrap();
+                self.advance();
+                Value::Function(self.compiler.convert_number_from_bytes(bytes) as usize, arity)
             }
         }
     }
@@ -243,6 +253,16 @@ impl VM {
                                     self.execution_stack.push(Value::Bool(false));
                                 }
                             }
+                        },
+                        Value::Function(ip, _) => {
+                            match val2 {
+                                Value::Function(ip2, _) => {
+                                    self.execution_stack.push(Value::Bool(ip == ip2));
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false));
+                                }
+                            }
                         }
                     }
                 },
@@ -272,6 +292,16 @@ impl VM {
                                 Value::Null => {
                                     self.execution_stack.push(Value::Bool(false));
                                 }
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(true));
+                                }
+                            }
+                        },
+                        Value::Function(ip, _) => {
+                            match val2 {
+                                Value::Function(ip2, _) => {
+                                    self.execution_stack.push(Value::Bool(ip != ip2));
+                                },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(true));
                                 }
@@ -437,7 +467,37 @@ impl VM {
                     let var = self.peek().unwrap().clone();
                     self.advance();
                     self.execution_stack.push(val.clone());
-                    self.execution_stack.set(var as usize, val);
+                    self.execution_stack.set(var as i32, val);
+                },
+                OP_RETURN => {
+                    self.advance();
+                    let val = self.execution_stack.pop().unwrap();
+                    self.execution_stack.set(-2, val);
+                },
+                OP_CALL => {
+                    self.advance();
+                    let Value::Function(ip, ar) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    let mut args = vec![];
+                    for _ in 0..ar {
+                        args.push(self.execution_stack.pop().unwrap());
+                    }
+                    self.execution_stack.push(Value::Null);
+                    self.execution_stack.push(Value::Number(self.ip as f32));
+
+                    let old_offset = self.execution_stack.offset;
+                    self.execution_stack.offset = self.execution_stack.real_len();
+
+                    self.execution_stack.push(Value::Number(old_offset as f32));
+                    args.into_iter().for_each(|arg| self.execution_stack.push(arg));
+
+                    self.ip = ip;
+                },
+                OP_END_FUNCTION => {
+                    self.execution_stack.reset_to(1usize);
+                    let Value::Number(off) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    self.execution_stack.offset = off as usize;
+                    let Value::Number(ip) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    self.ip = ip as usize;
                 },
                 OP_SET_GLOBAL => {
                     self.advance();

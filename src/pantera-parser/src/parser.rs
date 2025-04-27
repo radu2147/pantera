@@ -47,7 +47,7 @@ impl Parser{
                 if self.peek_nth(2).typ == TokenType::Colon {
                     self.parse_expression_statement()
                 } else {
-                    self.parse_block_stmt()
+                    self.parse_block_stmt(false)
                 }
             },
             TokenType::If => {
@@ -96,7 +96,7 @@ impl Parser{
         Ok(GlobalStatement::FunctionDeclaration(FunctionDeclarationStatement{
             name: Identifier{name: id_parts.join(FUNCTION_NAME_SEPARATOR), id: 1.0},
             params,
-            body: self.parse_block_stmt()?,
+            body: self.parse_block_stmt(true)?,
         }))
     }
 
@@ -276,7 +276,7 @@ impl Parser{
         self.advance();
         let expr = self.parse_expression()?;
         if self.peek().typ == TokenType::LeftParen {
-            let body = self.parse_block_stmt()?;
+            let body = self.parse_block_stmt(false)?;
             if self.peek().typ == TokenType::Else {
                 self.advance();
                 let alternative_stmt = self.parse_statement()?;
@@ -300,7 +300,7 @@ impl Parser{
         }
     }
 
-    pub fn parse_block_stmt(&mut self) -> ParserResult<Statement> {
+    pub fn parse_block_stmt(&mut self, is_function: bool) -> ParserResult<Statement> {
         self.advance();
         let mut stmts = vec![];
         loop {
@@ -317,9 +317,16 @@ impl Parser{
             }
             stmts.push(self.parse_statement()?);
         };
-        Ok(Statement::Block(Box::from(BlockStatement{
-            statements: stmts
-        })))
+        if is_function {
+            Ok(Statement::FunctionBody(Box::from(BlockStatement {
+                statements: stmts
+            })))
+        }
+        else {
+            Ok(Statement::Block(Box::from(BlockStatement {
+                statements: stmts
+            })))
+        }
     }
 
     pub fn parse_return_stmt(&mut self) -> ParserResult<Statement> {

@@ -3,7 +3,8 @@ use crate::bytecode::Bytecode;
 pub enum Type {
     Null = 0,
     Number = 1,
-    Boolean = 2
+    Boolean = 2,
+    Function = 3
 }
 
 impl Into<Bytecode> for Type {
@@ -11,20 +12,20 @@ impl Into<Bytecode> for Type {
         match self {
             Type::Null => 0,
             Type::Number => 1,
-            Type::Boolean => 2
+            Type::Boolean => 2,
+            Type::Function => 3
         }
     }
 }
 
-impl Type {
-    pub fn from(byte: Bytecode) -> Self {
-        match byte {
+impl From<Bytecode> for Type {
+    fn from(value: Bytecode) -> Self {
+        match value {
             0 => Type::Null,
             1 => Type::Number,
             2 => Type::Boolean,
+            3 => Type::Function,
             _ => panic!("Type doesn't exist")
         }
     }
-
-
 }

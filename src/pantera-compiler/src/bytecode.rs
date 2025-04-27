@@ -8,6 +8,7 @@ impl Into<Type> for &Bytecode {
             0 => Type::Null,
             1 => Type::Number,
             2 => Type::Boolean,
+            3 => Type::Function,
             _ => panic!("Type not supported")
         }
     }
@@ -58,5 +59,8 @@ generate_bytecode! (
     OP_SET,
     OP_SET_GLOBAL,
     OP_JUMP_IF_FALSE,
-    OP_JUMP
+    OP_JUMP,
+    OP_END_FUNCTION,
+    OP_CALL,
+    OP_RETURN
 );

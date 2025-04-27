@@ -19,9 +19,10 @@ pub trait StatementVisitor {
             Statement::Declaration(ref value) => self.visit_declaration_statement(value),
             Statement::MultiDeclaration(ref value ) => self.visit_multi_declaration(value),
             Statement::Loop(ref value) => self.visit_loop_statement(value),
+            Statement::FunctionBody(ref value) => self.visit_function_body(value)
         }
     }
-
+    fn visit_function_body(&self, stmt: &BlockStatement);
     fn visit_multi_declaration(&self, stmt: &MultiDeclarationStatement);
     fn visit_function_declaration(&self, func_dec: &FunctionDeclarationStatement);
     fn visit_break_statement(&self);
@@ -53,9 +54,11 @@ pub trait StatementVisitorMut {
             Statement::Declaration(ref value) => self.visit_declaration_statement(value),
             Statement::MultiDeclaration(ref value ) => self.visit_multi_declaration(value),
             Statement::Loop(ref value) => self.visit_loop_statement(value),
+            Statement::FunctionBody(ref value) => self.visit_function_body(value)
         }
     }
 
+    fn visit_function_body(&mut self, stmt: &BlockStatement);
     fn visit_function_declaration(&mut self, func_dec: &FunctionDeclarationStatement);
     fn visit_break_statement(&mut self);
     fn visit_print_statement(&mut self, stmt: &PrintStatement);

@@ -10,6 +10,7 @@ pub enum GlobalStatement {
 #[derive(Debug)]
 pub enum Statement {
     Print(Box<PrintStatement>),
+    FunctionBody(Box<BlockStatement>),
     Break,
     Block(Box<BlockStatement>),
     Expression(Box<ExpressionStatement>),

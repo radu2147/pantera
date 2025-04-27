@@ -4,7 +4,7 @@ use pantera_parser::parser::Parser;
 use pantera_vm::VM;
 
 fn main() {
-    let lexer = Lexer::new("var a, b= 3; {var c = 10 + b; {var d = c + 2; print d;} print d;}");
+    let lexer = Lexer::new("fun sum(a)with(b) {var c = a + b, rez = c; if c < 0 {rez = c^2;} return rez;} fun blk {loop 1..10 { print sum(it)with(-5); }} blk();");
     let parser = Parser::new(lexer.scan_tokens().unwrap());
     let mut compiler = Compiler::new();
     compiler.compile(parser);

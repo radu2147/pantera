@@ -4,7 +4,8 @@ use std::fmt::{Display, Formatter, Write};
 pub enum Value {
     Number(f32),
     Bool(bool),
-    Null
+    Null,
+    Function(usize, u8)
 }
 
 impl Display for Value {
@@ -12,7 +13,8 @@ impl Display for Value {
         match self {
             Self::Number(num) => f.write_str(&num.to_string()),
             Self::Null => f.write_str("null"),
-            Self::Bool(val) => f.write_str(&val.to_string())
+            Self::Bool(val) => f.write_str(&val.to_string()),
+            Self::Function(_, _) => f.write_str("[function]")
         }
     }
 }

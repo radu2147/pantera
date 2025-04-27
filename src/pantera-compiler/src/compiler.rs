@@ -4,7 +4,7 @@ use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN};
 use crate::env::Env;
 use crate::types::Type;
 
@@ -12,7 +12,7 @@ use crate::types::Type;
 pub enum Context {
     Global,
     Block,
-    Function
+    Function(String)
 }
 
 #[derive(Debug)]
@@ -21,7 +21,8 @@ pub struct Compiler {
     pub env: Box<Env>,
     pub break_stmt: Vec<Vec<usize>>,
     pub context: Context,
-    pub globals: HashMap<String, u16>
+    pub globals: HashMap<String, u16>,
+    pub active_func_args: HashMap<String, Vec<String>>,
 }
 
 impl Compiler {
@@ -31,7 +32,8 @@ impl Compiler {
             code: vec![],
             env: Box::new(Env::new()),
             context: Context::Global,
-            globals: HashMap::new()
+            globals: HashMap::new(),
+            active_func_args: HashMap::new(),
         }
     }
     pub fn compile(&mut self, mut parser: Parser) {
@@ -66,13 +68,25 @@ impl Compiler {
         self.emit_bytes(OP_PUSH, Type::Null.into());
     }
 
+    pub fn emit_jump(&mut self) -> usize {
+        self.emit_byte(OP_JUMP);
+        let loc = self.code.len();
+
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+
+        loc
+    }
+
     pub fn emit_hash(&mut self, variable: String) {
         if let Some(key) = self.globals.get(&variable) {
             key.to_le_bytes().iter().for_each(|bt|self.emit_byte(*bt));
             return;
         }
         let val = self.globals.len() as u16;
-        self.globals.insert(variable, val as u16);
+        self.globals.insert(variable, val);
         val.to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
@@ -135,7 +149,9 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_call_expression(&mut self, value: &CallExpression) {
-        todo!()
+        value.args.iter().for_each(|arg| self.visit_expression(arg));
+        self.visit_expression(&value.callee);
+        self.emit_byte(OP_CALL);
     }
 
     fn visit_assignment_expression(&mut self, value: &AssignmentExpression) {
@@ -192,8 +208,42 @@ impl ExpressionVisitorMut for Compiler {
 }
 
 impl StatementVisitorMut for Compiler {
+    fn visit_function_body(&mut self, stmt: &BlockStatement) {
+        self.env = Box::new(Env::new_frame(self.env.clone()));
+        self.env.set_variable("__offset__".to_string());
+        let Context::Function(func_name) = &self.context else {panic!("Something went wronng when compiling")};
+        self.active_func_args.get(func_name).unwrap().iter().for_each(|param| self.env.set_variable(param.clone()));
+
+        stmt.statements.iter().for_each(|stmt| self.visit_local_statement(stmt));
+
+        self.env = self.env.enclosing.clone().unwrap();
+    }
+
     fn visit_function_declaration(&mut self, func_dec: &FunctionDeclarationStatement) {
-        todo!()
+        let old_context = self.context.clone();
+        self.context = Context::Function(func_dec.name.name.clone());
+        self.emit_byte(OP_PUSH);
+        self.emit_byte(Type::Function.into());
+        let addr = self.code.len();
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+
+        self.emit_byte(func_dec.params.len() as Bytecode);
+        self.active_func_args.insert(func_dec.name.name.clone(), func_dec.params.iter().map(|param| param.name.clone()).collect::<Vec<String>>());
+
+        self.emit_byte(OP_DECLARE_GLOBAL);
+        self.emit_hash(func_dec.name.name.clone());
+
+        let loc = self.emit_jump();
+        self.back_patch(addr);
+        self.visit_local_statement(&func_dec.body);
+        self.emit_byte(OP_END_FUNCTION);
+
+        self.back_patch(loc);
+
+        self.context = old_context;
     }
 
     fn visit_break_statement(&mut self) {
@@ -237,7 +287,12 @@ impl StatementVisitorMut for Compiler {
     }
 
     fn visit_return_statement(&mut self, stmt: &ReturnStatement) {
-        todo!()
+        if stmt.value.is_some() {
+            let value = stmt.value.clone().unwrap();
+            self.visit_expression(&value);
+            self.emit_byte(OP_RETURN);
+        }
+        self.emit_byte(OP_END_FUNCTION);
     }
 
     fn visit_if_statement(&mut self, stmt: &IfStatement) {
@@ -253,14 +308,7 @@ impl StatementVisitorMut for Compiler {
 
         self.visit_local_statement(&stmt.body);
         if let Some(alt) = &stmt.alternative {
-            self.emit_byte(OP_JUMP);
-
-            let loc_else = self.code.len();
-
-            self.emit_byte(0);
-            self.emit_byte(0);
-            self.emit_byte(0);
-            self.emit_byte(0);
+            let loc_else = self.emit_jump();
             self.back_patch(loc);
 
             self.visit_local_statement(alt);
