@@ -6,6 +6,7 @@ use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
 use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN};
 use crate::env::Env;
+use crate::heap::HeapManager;
 use crate::types::Type;
 
 #[derive(Debug, Clone)]
@@ -17,6 +18,7 @@ pub enum Context {
 
 #[derive(Debug)]
 pub struct Compiler {
+    pub heap_manager: HeapManager,
     pub code: Vec<Bytecode>,
     pub env: Box<Env>,
     pub break_stmt: Vec<Vec<usize>>,
@@ -34,6 +36,7 @@ impl Compiler {
             context: Context::Global,
             globals: HashMap::new(),
             active_func_args: HashMap::new(),
+            heap_manager: HeapManager::new()
         }
     }
     pub fn compile(&mut self, mut parser: Parser) {
@@ -132,7 +135,11 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_string_expression(&mut self, value: &String) {
-        todo!()
+        let bytes = value.as_bytes();
+        self.emit_bytes(OP_PUSH, Type::String.into());
+
+        let ptr = self.heap_manager.allocate_object(Type::String, bytes).unwrap();
+        (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
     fn visit_identifier_expression(&mut self, value: &String) {

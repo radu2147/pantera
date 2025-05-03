@@ -9,6 +9,7 @@ impl Into<Type> for &Bytecode {
             1 => Type::Number,
             2 => Type::Boolean,
             3 => Type::Function,
+            4 => Type::String,
             _ => panic!("Type not supported")
         }
     }

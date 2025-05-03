@@ -6,6 +6,7 @@ use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_compiler::types::Type;
 use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
+use pantera_compiler::heap::HeapManager;
 use crate::stack::Stack;
 use crate::value::Value;
 
@@ -44,6 +45,17 @@ impl VM {
                 let arity = *self.peek().unwrap();
                 self.advance();
                 Value::Function(self.compiler.convert_number_from_bytes(bytes) as usize, arity)
+            },
+            Type::String => {
+                let mut bytes: [Bytecode; 8] = [0;8];
+                for i in 0..8 {
+                    bytes[i] = *self.peek().unwrap();
+                    self.advance();
+                }
+
+                let ptr = u64::from_le_bytes(bytes) as (*mut u8);
+
+                Value::String(ptr)
             }
         }
     }
@@ -103,7 +115,7 @@ impl VM {
                         let var_key = self.read_global();
 
                         self.globals.get(&var_key).unwrap_or_else(|| {panic!("Variable doesn't exist")}).clone()
-                    } else{
+                    } else {
                         self.read_constant()
                     };
 
@@ -146,6 +158,14 @@ impl VM {
                                 _ => panic!("Addition of vairables of different types is not supported")
                             }
                         },
+                        Value::String(ptr1) => {
+                            match val2 {
+                                Value::String(ptr2) => {
+                                    self.execution_stack.push(Value::String(self.compiler.heap_manager.concatenate_strings(ptr2, ptr1)));
+                                },
+                                _ => panic!("A string must only be added to another string")
+                            }
+                        }
                         _ => {
                             todo!()
                         }
@@ -254,6 +274,16 @@ impl VM {
                                 }
                             }
                         },
+                        Value::String(ptr) => {
+                            match val2 {
+                                Value::String(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_strings(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false))
+                                }
+                            }
+                        },
                         Value::Function(ip, _) => {
                             match val2 {
                                 Value::Function(ip2, _) => {
@@ -307,6 +337,16 @@ impl VM {
                                 }
                             }
                         }
+                        Value::String(ptr) => {
+                            match val2 {
+                                Value::String(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_strings(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(true))
+                                }
+                            }
+                        },
                     }
                 },
                 OP_UNARY_NOT => {
