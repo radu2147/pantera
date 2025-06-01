@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 pantera-compiler = { path = "../pantera-compiler" }
+pantera-heap = { path = "../pantera-heap" }

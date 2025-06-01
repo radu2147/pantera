@@ -1,19 +1,4 @@
-use crate::types::Type;
-
 pub type Bytecode = u8;
-
-impl Into<Type> for &Bytecode {
-    fn into(self) -> Type {
-        match self {
-            0 => Type::Null,
-            1 => Type::Number,
-            2 => Type::Boolean,
-            3 => Type::Function,
-            4 => Type::String,
-            _ => panic!("Type not supported")
-        }
-    }
-}
 
 macro_rules! generate_bytecode {
     // Entry point: take first separately
@@ -63,5 +48,6 @@ generate_bytecode! (
     OP_JUMP,
     OP_END_FUNCTION,
     OP_CALL,
-    OP_RETURN
+    OP_RETURN,
+    OP_ALLOCATE
 );

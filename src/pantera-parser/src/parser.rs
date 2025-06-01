@@ -626,7 +626,11 @@ impl Parser{
         while self.peek().typ != TokenType::RightParen {
             let expr = self.parse_primary()?;
             if matches!(expr, Expression::Identifier(_) | Expression::String(_) | Expression::Number(_))  {
-                keys.push(expr);
+                if matches!(expr, Expression::String(_) | Expression::Number(_) ) {
+                    keys.push(expr);
+                } else if let Expression::Identifier(ident) = &expr{
+                    keys.push(Expression::String(ident.to_string()))
+                }
                 self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
                 let val = self.parse_expression()?;
                 values.push(val)
@@ -716,7 +720,6 @@ mod tests {
         let rez = Parser::new(Lexer::new(input).scan_tokens().unwrap()).parse_program();
         if rez.is_err() {
             let Err(ref mess) = rez else {panic!("Not possible")};
-            println!("{:?}", mess);
             assert!(false);
         }
         rez.unwrap()

@@ -1,0 +1,284 @@
+use std::alloc::{alloc, Layout, LayoutError};
+use std::collections::HashMap;
+use std::ops::Add;
+use crate::types::Type;
+use crate::value::Value;
+
+pub type Ptr = *mut u8;
+
+pub enum HeapValue {
+    String(String),
+    Object(HashMap<String, Value>)
+}
+
+#[derive(Debug)]
+pub struct HeapManager {}
+
+impl HeapManager {
+
+    pub fn new() ->Self {
+        Self {}
+    }
+    pub fn allocate_bytes(&mut self, typ: Type, object_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
+        match typ {
+            Type::String => self.allocate_string(object_as_bytes),
+            _ => panic!("Cannot allocate this type")
+        }
+    }
+
+    pub fn allocate_value(&mut self, val: &Value, dest: Ptr) {
+        unsafe {
+            match val {
+                Value::Number(num) => {
+                    *dest = Type::Number as u8;
+                    let num_as_bytes = num.to_le_bytes();
+                    let padding = Self::get_object_entry_size() - num_as_bytes.len();
+                    for i in 0..Self::get_object_entry_size() {
+                        if i < padding {
+                            *dest.wrapping_add(i + 1) = 0u8;
+                        } else {
+                            *dest.wrapping_add(i + 1) = num_as_bytes[i - padding];
+                        }
+                    }
+                }
+                Value::Bool(bl) => {
+                    *dest = Type::Boolean as u8;
+                    for i in 0..Self::get_object_entry_size() - 1 {
+                        *dest.wrapping_add(i + 1) = 0u8;
+                    }
+                    *dest.wrapping_add(Self::get_object_entry_size()) = if *bl == true { 1u8 } else { 0u8 };
+                }
+                Value::Null => {
+                    *dest = Type::Null as u8;
+                    for i in 0..Self::get_object_entry_size() {
+                        *dest.wrapping_add(i + 1) = 0u8;
+                    }
+                }
+                Value::Function(func_ptr, _) => {
+                    *dest = Type::Function as u8;
+                    let num_as_bytes = (*func_ptr as f32).to_le_bytes();
+                    for i in 0..Self::get_object_entry_size() {
+                        if i < num_as_bytes.len() {
+                            *dest.wrapping_add(i + 1) = 0u8;
+                        } else {
+                            *dest.wrapping_add(i + 1) = num_as_bytes[i];
+                        }
+                    }
+                },
+                Value::String(str_ptr) => {
+                    *dest = Type::String as u8;
+                    Self::allocate_pointer(dest.add(1), *str_ptr);
+                }
+                Value::Object(obj_ptr) => {
+                    *dest = Type::Object as u8;
+                    Self::allocate_pointer(dest.add(1), *obj_ptr);
+                }
+            }
+        }
+    }
+
+    pub fn allocate_pointer(dest_ptr: Ptr, src_ptr: Ptr) {
+        let mut it_ptr = dest_ptr;
+        unsafe {
+            let bytes = (src_ptr as u64).to_le_bytes();
+            bytes.iter().for_each(|bt| {
+                *it_ptr = *bt;
+                it_ptr = it_ptr.add(1);
+            }
+            );
+        }
+    }
+
+    pub fn allocate_object(&mut self, val: HashMap<Ptr, Value>) -> Result<Ptr, LayoutError> {
+        unsafe {
+            let layout = Layout::array::<u8>(Self::compute_object_byte_size(&val))?;
+            let obj_ptr = alloc(layout);
+
+            *obj_ptr = Type::Object as u8;
+            let mut it_ptr = obj_ptr.add(1);
+
+            for i in 0..val.len().to_le_bytes().len() {
+                *it_ptr.add(i) = val.len().to_le_bytes()[i];
+            }
+
+            it_ptr = it_ptr.add(4);
+
+            for (key, val) in val.iter() {
+                Self::allocate_pointer(it_ptr, *key);
+                it_ptr = it_ptr.add(Self::get_object_entry_size());
+
+                self.allocate_value(val, it_ptr);
+                it_ptr = it_ptr.add(Self::get_object_entry_size() + 1);
+            }
+
+            Ok(obj_ptr)
+        }
+    }
+
+    pub const fn get_object_entry_size() -> usize {
+        size_of::<Ptr>()
+    }
+
+    pub fn compute_object_byte_size(val: &HashMap<Ptr, Value>) -> usize {
+        let keys_length = val.keys().len() * Self::get_object_entry_size();
+        let values_length = val.values().len() * Self::get_object_entry_size();
+
+        keys_length + values_length + 1usize + 4usize
+    }
+
+    pub fn concatenate_strings(&mut self, string1: Ptr, string2: Ptr) -> Ptr {
+        unsafe {
+            let mut len1_as_bytes = [0u8; 4];
+            let mut len2_as_bytes = [0u8; 4];
+            for i in 1..5 {
+                len1_as_bytes[i - 1] = *string1.wrapping_add(i);
+                len2_as_bytes[i - 1] = *string2.wrapping_add(i);
+            }
+
+            let mut bytes = vec![];
+
+            for i in 0..u32::from_le_bytes(len1_as_bytes) as usize {
+                bytes.push(*string1.wrapping_add(i + 5usize));
+            }
+
+            for i in 0..u32::from_le_bytes(len2_as_bytes) as usize {
+                bytes.push(*string2.wrapping_add(i + 5usize));
+            }
+
+            self.allocate_string(bytes.as_slice()).unwrap()
+        }
+    }
+
+    pub fn compare_strings(string1: Ptr, string2: Ptr) -> bool {
+        unsafe {
+            if *string1 != *string2 {
+                return false;
+            }
+            let mut len_as_bytes = [0u8; 4];
+            for i in 1..5 {
+                len_as_bytes[i - 1] = *string1.wrapping_add(i);
+                if *string1.wrapping_add(i) != *string2.wrapping_add(i) {
+                    return false;
+                }
+            }
+            let len = u32::from_le_bytes(len_as_bytes);
+            for i in 0..len as usize {
+                if *string1.wrapping_add(i + 4usize +1usize) != *string2.wrapping_add(i + 4usize +1usize) {
+                    return false;
+                }
+            }
+
+            true
+        }
+    }
+
+    pub fn get_from_heap(ptr: Ptr) -> HeapValue {
+        unsafe {
+            let byte = *ptr;
+            match Type::from(byte) {
+                Type::String => HeapValue::String(Self::get_string(ptr.add(1))),
+                Type::Object => HeapValue::Object(Self::get_object(ptr.add(1))),
+                _ => panic!("Object is not allocated on heap")
+            }
+        }
+    }
+
+    pub fn get_value(value_bytes: Vec<u8>, typ: Type) -> Value {
+        assert_eq!(value_bytes.len(), 8);
+        match typ {
+            Type::Null => Value::Null,
+            Type::Number => {
+                let padding = Self::get_object_entry_size() - size_of::<f32>();
+                let mut arr: [u8; 4] = [0u8; 4];
+                for i in 0..4 {
+                    arr[i] = value_bytes[padding + i];
+                }
+
+                Value::Number(f32::from_le_bytes(arr))
+            },
+            Type::Boolean => Value::Bool(value_bytes.get(Self::get_object_entry_size() - 1).is_some_and(|val| *val == 1)),
+            Type::Function => todo!(),
+            Type::String => todo!(),
+            Type::Object => todo!(),
+        }
+    }
+
+    pub fn get_object(obj_ptr: Ptr) -> HashMap<String, Value> {
+        unsafe {
+            let mut len_as_bytes = [0u8; 4];
+            for i in 0..4 {
+                len_as_bytes[i] = *obj_ptr.add(i);
+            }
+            let mut it_ptr = obj_ptr.add(4);
+
+            let len = u32::from_le_bytes(len_as_bytes);
+            let mut map = HashMap::new();
+            for _i in 0..len {
+                let ptr = Self::get_pointer(it_ptr);
+                let HeapValue::String(key) = Self::get_from_heap(ptr) else { panic!("Only strings should be used as keys"); };
+                it_ptr = it_ptr.add(Self::get_object_entry_size());
+
+                let mut val_as_bytes: Vec<u8> = vec![];
+                let typ = Type::from(*it_ptr);
+                it_ptr = it_ptr.add(1);
+
+                for _j in 0..Self::get_object_entry_size() {
+                    val_as_bytes.push(*it_ptr);
+                    it_ptr = it_ptr.add(1);
+                }
+
+                let value = Self::get_value(val_as_bytes, typ);
+
+                map.insert(key, value);
+            }
+
+            map
+        }
+    }
+
+    fn get_pointer(ptr_ptr: Ptr) -> Ptr {
+        let mut pointer_bytes: [u8;Self::get_object_entry_size()] = [0u8; Self::get_object_entry_size()];
+        for i in 0..Self::get_object_entry_size() {
+            unsafe{
+                pointer_bytes[i] = *ptr_ptr.add(i);
+            }
+        }
+
+        u64::from_le_bytes(pointer_bytes) as Ptr
+    }
+
+    fn get_string(ptr: Ptr) -> String {
+        unsafe {
+            let mut len_as_bytes = [0u8; 4];
+            for i in 0..4 {
+                len_as_bytes[i] = *ptr.wrapping_add(i);
+            }
+            let len = u32::from_le_bytes(len_as_bytes);
+            let mut string_as_bytes: Vec<u8> = vec![];
+            for i in 0..len as usize {
+                string_as_bytes.push(*ptr.wrapping_add(i + 4usize));
+            }
+            String::from_utf8(string_as_bytes).unwrap()
+        }
+    }
+
+    fn allocate_string(&mut self, string_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
+        unsafe {
+            let layout = Layout::array::<u8>(string_as_bytes.len() + 1 + 4)?;
+            let ptr = alloc(layout);
+
+            *ptr = Type::String as u8;
+
+            for i in 0..string_as_bytes.len().to_le_bytes().len() {
+                *ptr.add(i + 1) = string_as_bytes.len().to_le_bytes()[i];
+            }
+
+
+            for i in 0..string_as_bytes.len() {
+                *ptr.add(i + 1 + 4) = string_as_bytes[i];
+            }
+
+            Ok(ptr)
+        }
+    }
+}

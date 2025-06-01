@@ -4,10 +4,10 @@ use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE};
 use crate::env::Env;
-use crate::heap::HeapManager;
-use crate::types::Type;
+use pantera_heap::heap::HeapManager;
+use pantera_heap::types::Type;
 
 #[derive(Debug, Clone)]
 pub enum Context {
@@ -57,18 +57,18 @@ impl Compiler {
 
     pub fn emit_number(&mut self, number: f32) {
         self.emit_byte(OP_PUSH);
-        self.emit_byte(Type::Number.into());
+        self.emit_byte(Type::Number as Bytecode);
         self.convert_number_to_bytes(number).into_iter().for_each(|bc| self.emit_byte(bc));
     }
 
     pub fn emit_boolean(&mut self, val: bool) {
         self.emit_byte(OP_PUSH);
-        self.emit_byte(Type::Boolean.into());
+        self.emit_byte(Type::Boolean as Bytecode);
         self.emit_byte(self.convert_bool_to_byte(val));
     }
 
     pub fn emit_null(&mut self) {
-        self.emit_bytes(OP_PUSH, Type::Null.into());
+        self.emit_bytes(OP_PUSH, Type::Null as Bytecode);
     }
 
     pub fn emit_jump(&mut self) -> usize {
@@ -136,9 +136,9 @@ impl ExpressionVisitorMut for Compiler {
 
     fn visit_string_expression(&mut self, value: &String) {
         let bytes = value.as_bytes();
-        self.emit_bytes(OP_PUSH, Type::String.into());
+        self.emit_bytes(OP_PUSH, Type::String as Bytecode);
 
-        let ptr = self.heap_manager.allocate_object(Type::String, bytes).unwrap();
+        let ptr = self.heap_manager.allocate_bytes(Type::String, bytes).unwrap();
         (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
@@ -210,7 +210,10 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_object_expression(&mut self, value: &ObjectExpression) {
-        todo!()
+        value.properties.iter().for_each(|prop| self.visit_expression(prop));
+        value.values.iter().for_each(|val| self.visit_expression(val));
+        self.emit_number(value.properties.len() as f32);
+        self.emit_byte(OP_ALLOCATE);
     }
 }
 
@@ -230,7 +233,7 @@ impl StatementVisitorMut for Compiler {
         let old_context = self.context.clone();
         self.context = Context::Function(func_dec.name.name.clone());
         self.emit_byte(OP_PUSH);
-        self.emit_byte(Type::Function.into());
+        self.emit_byte(Type::Function as Bytecode);
         let addr = self.code.len();
         self.emit_byte(0);
         self.emit_byte(0);

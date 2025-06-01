@@ -1,14 +1,13 @@
 mod stack;
-mod value;
 
 use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
-use pantera_compiler::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
-use pantera_compiler::heap::HeapManager;
+use pantera_heap::types::Type;
+use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
+use pantera_heap::heap::HeapManager;
 use crate::stack::Stack;
-use crate::value::Value;
+use pantera_heap::value::Value;
 
 pub struct VM {
     compiler: Compiler,
@@ -19,7 +18,7 @@ pub struct VM {
 
 impl VM {
     fn read_constant(&mut self) -> Value {
-        let typ = self.peek().unwrap().into();
+        let typ = Type::from(*self.peek().unwrap());
         self.advance();
         match typ {
             Type::Null => Value::Null,
@@ -47,8 +46,8 @@ impl VM {
                 Value::Function(self.compiler.convert_number_from_bytes(bytes) as usize, arity)
             },
             Type::String => {
-                let mut bytes: [Bytecode; 8] = [0;8];
-                for i in 0..8 {
+                let mut bytes: [Bytecode; HeapManager::get_object_entry_size()] = [0;HeapManager::get_object_entry_size()];
+                for i in 0..HeapManager::get_object_entry_size() {
                     bytes[i] = *self.peek().unwrap();
                     self.advance();
                 }
@@ -57,6 +56,7 @@ impl VM {
 
                 Value::String(ptr)
             }
+            Type::Object => todo!()
         }
     }
 
@@ -294,6 +294,7 @@ impl VM {
                                 }
                             }
                         }
+                        Value::Object(_) => todo!()
                     }
                 },
                 OP_NE => {
@@ -347,6 +348,7 @@ impl VM {
                                 }
                             }
                         },
+                        Value::Object(_) => todo!(),
                     }
                 },
                 OP_UNARY_NOT => {
@@ -545,7 +547,24 @@ impl VM {
                     let var = self.read_global();
                     self.execution_stack.push(val.clone());
                     self.globals.insert(var, val);
-                }
+                },
+                OP_ALLOCATE => {
+                    self.advance();
+                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                    let mut values = vec![];
+                    let mut obj = HashMap::new();
+                    for _i in 0..(len as usize) {
+                        values.push(self.execution_stack.pop().unwrap());
+                    }
+                    for i in 0..(len as usize) {
+                        let Value::String(str_ptr) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                        obj.insert(str_ptr, values[i].clone());
+                    }
+
+                    let obj_ptr = self.compiler.heap_manager.allocate_object(obj).unwrap();
+
+                    self.execution_stack.push(Value::Object(obj_ptr));
+                },
                 _ => {
                     todo!();
                 }
