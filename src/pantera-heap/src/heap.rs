@@ -2,14 +2,9 @@ use std::alloc::{alloc, Layout, LayoutError};
 use std::collections::HashMap;
 use std::ops::Add;
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{HeapValue, Value};
 
 pub type Ptr = *mut u8;
-
-pub enum HeapValue {
-    String(String),
-    Object(HashMap<String, Value>)
-}
 
 #[derive(Debug)]
 pub struct HeapManager {}
@@ -57,11 +52,12 @@ impl HeapManager {
                 Value::Function(func_ptr, _) => {
                     *dest = Type::Function as u8;
                     let num_as_bytes = (*func_ptr as f32).to_le_bytes();
+                    let padding = Self::get_object_entry_size() - num_as_bytes.len();
                     for i in 0..Self::get_object_entry_size() {
-                        if i < num_as_bytes.len() {
+                        if i < padding {
                             *dest.wrapping_add(i + 1) = 0u8;
                         } else {
-                            *dest.wrapping_add(i + 1) = num_as_bytes[i];
+                            *dest.wrapping_add(i + 1) = num_as_bytes[i - padding];
                         }
                     }
                 },
@@ -183,10 +179,10 @@ impl HeapManager {
         }
     }
 
-    pub fn get_value(value_bytes: Vec<u8>, typ: Type) -> Value {
+    pub fn get_value(value_bytes: Vec<u8>, typ: Type) -> HeapValue {
         assert_eq!(value_bytes.len(), 8);
         match typ {
-            Type::Null => Value::Null,
+            Type::Null => Value::Null.into(),
             Type::Number => {
                 let padding = Self::get_object_entry_size() - size_of::<f32>();
                 let mut arr: [u8; 4] = [0u8; 4];
@@ -194,16 +190,36 @@ impl HeapManager {
                     arr[i] = value_bytes[padding + i];
                 }
 
-                Value::Number(f32::from_le_bytes(arr))
+                Value::Number(f32::from_le_bytes(arr)).into()
             },
-            Type::Boolean => Value::Bool(value_bytes.get(Self::get_object_entry_size() - 1).is_some_and(|val| *val == 1)),
-            Type::Function => todo!(),
-            Type::String => todo!(),
-            Type::Object => todo!(),
+            Type::Boolean => Value::Bool(value_bytes.get(Self::get_object_entry_size() - 1).is_some_and(|val| *val == 1)).into(),
+            Type::Function => {
+                let mut arr: [u8; 4] = [0u8; 4];
+                for i in 0..4 {
+                    arr[i] = value_bytes[i];
+                }
+                Value::Function(u32::from_le_bytes(arr) as usize, 0).into()
+            },
+            Type::String => {
+                let mut bytes :[u8;Self::get_object_entry_size()] = [0u8;Self::get_object_entry_size()];
+                for i in 0..Self::get_object_entry_size() {
+                    bytes[i] = value_bytes[i];
+                }
+                let ptr = u64::from_le_bytes(bytes) as Ptr;
+                Self::get_from_heap(ptr)
+            },
+            Type::Object => {
+                let mut bytes :[u8;Self::get_object_entry_size()] = [0u8;Self::get_object_entry_size()];
+                for i in 0..Self::get_object_entry_size() {
+                    bytes[i] = value_bytes[i];
+                }
+                let ptr = u64::from_le_bytes(bytes) as Ptr;
+                Self::get_from_heap(ptr)
+            },
         }
     }
 
-    pub fn get_object(obj_ptr: Ptr) -> HashMap<String, Value> {
+    pub fn get_object(obj_ptr: Ptr) -> HashMap<String, Box<HeapValue>> {
         unsafe {
             let mut len_as_bytes = [0u8; 4];
             for i in 0..4 {
@@ -227,7 +243,7 @@ impl HeapManager {
                     it_ptr = it_ptr.add(1);
                 }
 
-                let value = Self::get_value(val_as_bytes, typ);
+                let value = Box::from(Self::get_value(val_as_bytes, typ));
 
                 map.insert(key, value);
             }
