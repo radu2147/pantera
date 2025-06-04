@@ -4,7 +4,7 @@ use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS};
 use crate::env::Env;
 use pantera_heap::heap::HeapManager;
 use pantera_heap::types::Type;
@@ -206,7 +206,9 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_member_expression(&mut self, value: &MemberExpression) {
-        todo!()
+        self.visit_string_expression(&value.property);
+        self.visit_expression(&value.callee);
+        self.emit_byte(OP_ACCESS);
     }
 
     fn visit_object_expression(&mut self, value: &ObjectExpression) {

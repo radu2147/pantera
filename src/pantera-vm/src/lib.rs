@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
+use pantera_compiler::bytecode::{OP_PUSH, OP_ACCESS, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
 use pantera_heap::heap::HeapManager;
 use crate::stack::Stack;
 use pantera_heap::value::Value;
@@ -564,6 +564,14 @@ impl VM {
                     let obj_ptr = self.compiler.heap_manager.allocate_object(obj).unwrap();
 
                     self.execution_stack.push(Value::Object(obj_ptr));
+                },
+                OP_ACCESS => {
+                    self.advance();
+                    let Value::Object(obj) = self.execution_stack.pop().unwrap() else {panic!("Not an object");};
+                    let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
+
+                    let val = self.compiler.heap_manager.get_property_from_object(obj, &key);
+                    self.execution_stack.push(val);
                 },
                 _ => {
                     todo!();

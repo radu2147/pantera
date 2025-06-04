@@ -49,5 +49,6 @@ generate_bytecode! (
     OP_END_FUNCTION,
     OP_CALL,
     OP_RETURN,
-    OP_ALLOCATE
+    OP_ALLOCATE,
+    OP_ACCESS
 );

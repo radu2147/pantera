@@ -37,7 +37,7 @@ pub struct ObjectExpression {
 #[derive(Debug, Clone)]
 pub struct MemberExpression {
     pub callee: Expression,
-    pub property: Expression
+    pub property: String
 }
 
 #[derive(Debug, Clone)]

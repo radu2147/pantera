@@ -7,12 +7,16 @@ use crate::value::{HeapValue, Value};
 pub type Ptr = *mut u8;
 
 #[derive(Debug)]
-pub struct HeapManager {}
+pub struct HeapManager {
+    pub object_keys: HashMap<Ptr, HashMap<String, usize>>,
+}
 
 impl HeapManager {
 
     pub fn new() ->Self {
-        Self {}
+        Self {
+            object_keys: HashMap::new()
+        }
     }
     pub fn allocate_bytes(&mut self, typ: Type, object_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
         match typ {
@@ -99,13 +103,19 @@ impl HeapManager {
 
             it_ptr = it_ptr.add(4);
 
+            let mut keys = HashMap::new();
+
             for (key, val) in val.iter() {
+                let HeapValue::String(obj_prop) = Self::get_from_heap(*key) else {panic!("Unreachable");};
+                keys.insert(obj_prop, keys.len());
                 Self::allocate_pointer(it_ptr, *key);
                 it_ptr = it_ptr.add(Self::get_object_entry_size());
 
                 self.allocate_value(val, it_ptr);
                 it_ptr = it_ptr.add(Self::get_object_entry_size() + 1);
             }
+
+            self.object_keys.insert(obj_ptr, keys);
 
             Ok(obj_ptr)
         }
@@ -179,6 +189,31 @@ impl HeapManager {
         }
     }
 
+    pub fn get_raw_value(value_bytes: Vec<u8>, typ: Type) -> Value {
+        match typ {
+            Type::String => {
+                let mut bytes :[u8;Self::get_object_entry_size()] = [0u8;Self::get_object_entry_size()];
+                for i in 0..Self::get_object_entry_size() {
+                    bytes[i] = value_bytes[i];
+                }
+                let ptr = u64::from_le_bytes(bytes) as Ptr;
+                Value::String(ptr)
+            },
+            Type::Object => {
+                let mut bytes :[u8;Self::get_object_entry_size()] = [0u8;Self::get_object_entry_size()];
+                for i in 0..Self::get_object_entry_size() {
+                    bytes[i] = value_bytes[i];
+                }
+                let ptr = u64::from_le_bytes(bytes) as Ptr;
+                Value::Object(ptr)
+            },
+            _ => {
+                let HeapValue::Value(raw_val) = Self::get_value(value_bytes, typ) else { panic!("Something went wrong"); };
+                raw_val
+            }
+        }
+    }
+
     pub fn get_value(value_bytes: Vec<u8>, typ: Type) -> HeapValue {
         assert_eq!(value_bytes.len(), 8);
         match typ {
@@ -216,6 +251,29 @@ impl HeapManager {
                 let ptr = u64::from_le_bytes(bytes) as Ptr;
                 Self::get_from_heap(ptr)
             },
+        }
+    }
+
+    pub fn get_property_from_object(&self, obj_ptr: Ptr, name: &Ptr) -> Value {
+        let binding = HashMap::new();
+        let HeapValue::String(obj_prop) = Self::get_from_heap(*name) else {panic!("Unreachable");};
+        let offset = self.object_keys.get(&obj_ptr).unwrap_or(&binding).get(&obj_prop);
+        if let Some(off) = offset {
+            unsafe {
+                let mut val_ptr = obj_ptr.add(1 + 4 + Self::get_object_entry_size() * (*off + 1) + (Self::get_object_entry_size() +1) * (*off));
+                let mut val_as_bytes: Vec<u8> = vec![];
+                let typ = Type::from(*val_ptr);
+                val_ptr = val_ptr.add(1);
+
+                for _j in 0..Self::get_object_entry_size() {
+                    val_as_bytes.push(*val_ptr);
+                    val_ptr = val_ptr.add(1);
+                }
+
+                Self::get_raw_value(val_as_bytes, typ)
+            }
+        } else {
+            Value::Null
         }
     }
 
