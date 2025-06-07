@@ -1,22 +1,17 @@
 use std::alloc::{alloc, Layout, LayoutError};
 use std::collections::HashMap;
-use std::ops::Add;
 use crate::types::Type;
 use crate::value::{HeapValue, Value};
 
 pub type Ptr = *mut u8;
 
 #[derive(Debug)]
-pub struct HeapManager {
-    pub object_keys: HashMap<Ptr, HashMap<String, usize>>,
-}
+pub struct HeapManager {}
 
 impl HeapManager {
 
     pub fn new() ->Self {
-        Self {
-            object_keys: HashMap::new()
-        }
+        Self {}
     }
     pub fn allocate_bytes(&mut self, typ: Type, object_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
         match typ {
@@ -103,19 +98,13 @@ impl HeapManager {
 
             it_ptr = it_ptr.add(4);
 
-            let mut keys = HashMap::new();
-
             for (key, val) in val.iter() {
-                let HeapValue::String(obj_prop) = Self::get_from_heap(*key) else {panic!("Unreachable");};
-                keys.insert(obj_prop, keys.len());
                 Self::allocate_pointer(it_ptr, *key);
                 it_ptr = it_ptr.add(Self::get_object_entry_size());
 
                 HeapManager::allocate_value(val, it_ptr);
                 it_ptr = it_ptr.add(Self::get_object_entry_size() + 1);
             }
-
-            self.object_keys.insert(obj_ptr, keys);
 
             Ok(obj_ptr)
         }
@@ -256,26 +245,27 @@ impl HeapManager {
     }
 
     pub fn get_property_from_object(&self, obj_ptr: Ptr, name: &Ptr) -> Value {
-        let binding = HashMap::new();
-        let HeapValue::String(obj_prop) = Self::get_from_heap(*name) else {panic!("Unreachable");};
-        let offset = self.object_keys.get(&obj_ptr).unwrap_or(&binding).get(&obj_prop);
-        if let Some(off) = offset {
-            unsafe {
-                let mut val_ptr = obj_ptr.add(1 + 4 + Self::get_object_entry_size() * (*off + 1) + (Self::get_object_entry_size() +1) * (*off));
-                let mut val_as_bytes: Vec<u8> = vec![];
-                let typ = Type::from(*val_ptr);
-                val_ptr = val_ptr.add(1);
-
-                for _j in 0..Self::get_object_entry_size() {
-                    val_as_bytes.push(*val_ptr);
-                    val_ptr = val_ptr.add(1);
-                }
-
-                Self::get_raw_value(val_as_bytes, typ)
-            }
-        } else {
-            Value::Null
-        }
+        // let binding = HashMap::new();
+        // let HeapValue::String(obj_prop) = Self::get_from_heap(*name) else {panic!("Unreachable");};
+        // let offset = self.object_keys.get(&obj_ptr).unwrap_or(&binding).get(&obj_prop);
+        // if let Some(off) = offset {
+        //     unsafe {
+        //         let mut val_ptr = obj_ptr.add(1 + 4 + Self::get_object_entry_size() * (*off + 1) + (Self::get_object_entry_size() +1) * (*off));
+        //         let mut val_as_bytes: Vec<u8> = vec![];
+        //         let typ = Type::from(*val_ptr);
+        //         val_ptr = val_ptr.add(1);
+        //
+        //         for _j in 0..Self::get_object_entry_size() {
+        //             val_as_bytes.push(*val_ptr);
+        //             val_ptr = val_ptr.add(1);
+        //         }
+        //
+        //         Self::get_raw_value(val_as_bytes, typ)
+        //     }
+        // } else {
+        //     Value::Null
+        // }
+        Value::Null
     }
 
     pub fn get_object(obj_ptr: Ptr) -> HashMap<String, Box<HeapValue>> {

@@ -1,7 +1,6 @@
 use std::alloc::{alloc, Layout};
-use std::ops::Add;
 use std::ptr;
-use std::ptr::null;
+use crate::bytes::{read_byte, read_bytes, read_pointer, write_byte, write_pointer};
 use crate::heap::{HeapManager, Ptr};
 use crate::types::Type;
 use crate::value::Value;
@@ -15,44 +14,28 @@ pub struct HashEntry {
 }
 
 pub unsafe fn get_key(entry: Ptr) -> Ptr {
-    let mut bytes = [0u8;8];
-    for i in 0..8 {
-        bytes[i] = *entry.add(i);
-    }
-
-    u64::from_le_bytes(bytes) as Ptr
+    read_pointer(entry)
 }
 
 pub unsafe fn set_key(entry: Ptr, key: Ptr) {
-    let bytes = (key as usize).to_le_bytes();
-    for i in 0..8 {
-        *entry.add(i) = bytes[i];
-    }
+    write_pointer(entry, key)
 }
 
 pub unsafe fn get_type(entry: Ptr) -> Type {
-    let typ_ptr = entry.add(8);
-    Type::from(*typ_ptr)
+    Type::from(read_byte(entry.add(8)))
 }
 
 pub unsafe fn set_type(entry: Ptr, typ: Type) {
-    let byte = typ.into();
-    *entry.add(8) = byte;
+    write_byte(entry.add(8), typ.into());
 }
 
 pub unsafe fn get_value(entry: Ptr) -> Option<Value> {
-    let mut bytes = vec![];
-    let mut it_ptr = entry;
     let typ = get_type(entry);
     if matches!(typ, Type::Empty) {
         return None;
     }
 
-    it_ptr = it_ptr.add(8 + 1);
-    for _i in 0..8 {
-        bytes.push(*it_ptr);
-        it_ptr = it_ptr.add(1);
-    }
+    let bytes = read_bytes(entry.add(8 + 1), 8);
 
     let val = HeapManager::get_raw_value(bytes, get_type(entry));
     Some(val)
@@ -136,7 +119,7 @@ impl HashTable {
 
         let entry = self.find_entry(&key);
 
-        set_key(entry, null::<u8>() as Ptr);
+        set_key(entry, ptr::null::<u8>() as Ptr);
         set_value(entry, Value::Bool(true))
     }
 }
