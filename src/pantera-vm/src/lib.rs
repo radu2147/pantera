@@ -56,7 +56,8 @@ impl VM {
 
                 Value::String(ptr)
             }
-            Type::Object => todo!()
+            Type::Object => todo!(),
+            Type::Empty => panic!("Not a type")
         }
     }
 

@@ -25,7 +25,7 @@ impl HeapManager {
         }
     }
 
-    pub fn allocate_value(&mut self, val: &Value, dest: Ptr) {
+    pub fn allocate_value(val: &Value, dest: Ptr) {
         unsafe {
             match val {
                 Value::Number(num) => {
@@ -111,7 +111,7 @@ impl HeapManager {
                 Self::allocate_pointer(it_ptr, *key);
                 it_ptr = it_ptr.add(Self::get_object_entry_size());
 
-                self.allocate_value(val, it_ptr);
+                HeapManager::allocate_value(val, it_ptr);
                 it_ptr = it_ptr.add(Self::get_object_entry_size() + 1);
             }
 
@@ -251,6 +251,7 @@ impl HeapManager {
                 let ptr = u64::from_le_bytes(bytes) as Ptr;
                 Self::get_from_heap(ptr)
             },
+            _ => panic!("Not a type")
         }
     }
 
