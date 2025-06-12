@@ -3,6 +3,8 @@ use crate::utils::vec_to_array;
 
 // > Readers
 
+pub const NULL: u8 = 0u8;
+
 pub unsafe fn read_byte(entry: Ptr) -> u8 {
     *entry
 }
@@ -16,11 +18,11 @@ pub unsafe fn read_bytes(entry: Ptr, len: usize) -> Vec<u8> {
     bytes
 }
 
-unsafe fn read_bytes_until_null(entry: Ptr) -> Vec<u8> {
+pub unsafe fn read_bytes_until_null(entry: Ptr) -> Vec<u8> {
     let mut bytes = vec![];
     let mut it_ptr = entry;
     loop {
-        if *it_ptr == 0 {
+        if *it_ptr == NULL {
             break;
         }
         bytes.push(*it_ptr);
@@ -64,7 +66,7 @@ pub unsafe fn write_bytes(dest: Ptr, bytes: &Vec<u8>) {
 pub unsafe fn write_string(dest: Ptr, string: String) {
     let len = string.len();
     write_bytes(dest, &string.into_bytes());
-    write_byte(dest.add(len), 0u8);
+    write_byte(dest.add(len), NULL);
 }
 
 pub unsafe fn write_number(dest: Ptr, num: f64) {

@@ -135,10 +135,9 @@ impl ExpressionVisitorMut for Compiler {
     }
 
     fn visit_string_expression(&mut self, value: &String) {
-        let bytes = value.as_bytes();
         self.emit_bytes(OP_PUSH, Type::String as Bytecode);
 
-        let ptr = self.heap_manager.allocate_bytes(Type::String, bytes).unwrap();
+        let ptr = self.heap_manager.allocate_string(value.clone()).unwrap();
         (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 

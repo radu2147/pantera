@@ -1,5 +1,6 @@
 use std::alloc::{alloc, Layout, LayoutError};
 use std::collections::HashMap;
+use crate::bytes::{read_byte, read_bytes, read_bytes_until_null, read_string, write_byte, write_string, NULL};
 use crate::types::Type;
 use crate::value::{HeapValue, Value};
 
@@ -12,12 +13,6 @@ impl HeapManager {
 
     pub fn new() ->Self {
         Self {}
-    }
-    pub fn allocate_bytes(&mut self, typ: Type, object_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
-        match typ {
-            Type::String => self.allocate_string(object_as_bytes),
-            _ => panic!("Cannot allocate this type")
-        }
     }
 
     pub fn allocate_value(val: &Value, dest: Ptr) {
@@ -121,57 +116,11 @@ impl HeapManager {
         keys_length + values_length + 1usize + 4usize
     }
 
-    pub fn concatenate_strings(&mut self, string1: Ptr, string2: Ptr) -> Ptr {
-        unsafe {
-            let mut len1_as_bytes = [0u8; 4];
-            let mut len2_as_bytes = [0u8; 4];
-            for i in 1..5 {
-                len1_as_bytes[i - 1] = *string1.wrapping_add(i);
-                len2_as_bytes[i - 1] = *string2.wrapping_add(i);
-            }
-
-            let mut bytes = vec![];
-
-            for i in 0..u32::from_le_bytes(len1_as_bytes) as usize {
-                bytes.push(*string1.wrapping_add(i + 5usize));
-            }
-
-            for i in 0..u32::from_le_bytes(len2_as_bytes) as usize {
-                bytes.push(*string2.wrapping_add(i + 5usize));
-            }
-
-            self.allocate_string(bytes.as_slice()).unwrap()
-        }
-    }
-
-    pub fn compare_strings(string1: Ptr, string2: Ptr) -> bool {
-        unsafe {
-            if *string1 != *string2 {
-                return false;
-            }
-            let mut len_as_bytes = [0u8; 4];
-            for i in 1..5 {
-                len_as_bytes[i - 1] = *string1.wrapping_add(i);
-                if *string1.wrapping_add(i) != *string2.wrapping_add(i) {
-                    return false;
-                }
-            }
-            let len = u32::from_le_bytes(len_as_bytes);
-            for i in 0..len as usize {
-                if *string1.wrapping_add(i + 4usize +1usize) != *string2.wrapping_add(i + 4usize +1usize) {
-                    return false;
-                }
-            }
-
-            true
-        }
-    }
-
     pub fn get_from_heap(ptr: Ptr) -> HeapValue {
         unsafe {
             let byte = *ptr;
             match Type::from(byte) {
-                Type::String => HeapValue::String(Self::get_string(ptr.add(1))),
+                Type::String => HeapValue::String(read_string(ptr.add(1))),
                 Type::Object => HeapValue::Object(Self::get_object(ptr.add(1))),
                 _ => panic!("Object is not allocated on heap")
             }
@@ -312,38 +261,50 @@ impl HeapManager {
         u64::from_le_bytes(pointer_bytes) as Ptr
     }
 
-    fn get_string(ptr: Ptr) -> String {
+    // > Strings
+    pub fn concatenate_strings(&mut self, string1: Ptr, string2: Ptr) -> Ptr {
         unsafe {
-            let mut len_as_bytes = [0u8; 4];
-            for i in 0..4 {
-                len_as_bytes[i] = *ptr.wrapping_add(i);
-            }
-            let len = u32::from_le_bytes(len_as_bytes);
-            let mut string_as_bytes: Vec<u8> = vec![];
-            for i in 0..len as usize {
-                string_as_bytes.push(*ptr.wrapping_add(i + 4usize));
-            }
-            String::from_utf8(string_as_bytes).unwrap()
+            let mut bytes1 = read_bytes_until_null(string1);
+            let bytes2 = read_bytes_until_null(string2);
+
+            bytes2.into_iter().for_each(|bt| bytes1.push(bt));
+
+            self.allocate_string(String::from_utf8(bytes1).unwrap()).unwrap()
         }
     }
 
-    fn allocate_string(&mut self, string_as_bytes: &[u8]) -> Result<Ptr, LayoutError> {
+    pub fn compare_strings(string1: Ptr, string2: Ptr) -> bool {
         unsafe {
-            let layout = Layout::array::<u8>(string_as_bytes.len() + 1 + 4)?;
+            let mut it_str1 = string1;
+            let mut it_str2 = string2;
+            loop {
+                if read_byte(it_str1) != read_byte(it_str2) {
+                    return false;
+                }
+                if read_byte(it_str1) == NULL {
+                    break;
+                }
+
+                it_str1 = it_str1.add(1);
+                it_str2 = it_str2.add(1);
+
+            }
+
+            true
+        }
+    }
+
+    pub fn allocate_string(&mut self, string: String) -> Result<Ptr, LayoutError> {
+        unsafe {
+            let layout = Layout::array::<u8>(string.len() + 1 + 1)?;
             let ptr = alloc(layout);
 
-            *ptr = Type::String as u8;
-
-            for i in 0..string_as_bytes.len().to_le_bytes().len() {
-                *ptr.add(i + 1) = string_as_bytes.len().to_le_bytes()[i];
-            }
-
-
-            for i in 0..string_as_bytes.len() {
-                *ptr.add(i + 1 + 4) = string_as_bytes[i];
-            }
+            write_byte(ptr, Type::String as u8);
+            write_string(ptr.add(1), string);
 
             Ok(ptr)
         }
     }
+
+    // > Strings
 }
