@@ -32,6 +32,10 @@ pub unsafe fn read_bytes_until_null(entry: Ptr) -> Vec<u8> {
     bytes
 }
 
+pub unsafe fn read_bool(entry: Ptr) -> bool {
+    read_byte(entry) == 1
+}
+
 pub unsafe fn read_number(entry: Ptr) -> f64 {
     let bytes = read_bytes(entry, size_of::<Ptr>());
     let bytes_as_arr = vec_to_array(&bytes);
@@ -44,9 +48,9 @@ pub unsafe fn read_string(entry: Ptr) -> String {
 }
 
 pub unsafe fn read_pointer(entry: Ptr) -> Ptr {
-    let ptr_num = read_number(entry) as usize;
+    let ptr_num = read_bytes(entry, 8);
 
-    ptr_num as Ptr
+    u64::from_le_bytes(vec_to_array(&ptr_num)) as Ptr
 }
 
 // < Readers
@@ -63,6 +67,11 @@ pub unsafe fn write_bytes(dest: Ptr, bytes: &Vec<u8>) {
     }
 }
 
+pub unsafe fn write_bool(dest: Ptr, val: bool) {
+    write_byte(dest, if val{1u8} else{0u8});
+    write_bytes(dest.add(1), &Vec::from([0u8;7]))
+}
+
 pub unsafe fn write_string(dest: Ptr, string: String) {
     let len = string.len();
     write_bytes(dest, &string.into_bytes());
@@ -74,7 +83,7 @@ pub unsafe fn write_number(dest: Ptr, num: f64) {
 }
 
 pub unsafe fn write_pointer(dest: Ptr, ptr: Ptr) {
-    write_number(dest, (ptr as usize) as f64);
+    write_bytes(dest, &(ptr as u64).to_le_bytes().to_vec());
 }
 
 // < Writers
@@ -82,7 +91,6 @@ pub unsafe fn write_pointer(dest: Ptr, ptr: Ptr) {
 mod test {
     use std::alloc::{alloc, Layout};
     use crate::bytes::{read_bytes, read_number, read_pointer, read_string, write_byte, write_bytes, write_number, write_pointer, write_string};
-    use crate::heap::Ptr;
 
     #[test]
     pub fn test_writer() {
@@ -138,15 +146,17 @@ mod test {
     pub fn test_pointer() {
         unsafe {
             let layout = Layout::array::<u8>(8).unwrap();
-            let obj_ptr = alloc(layout);
-            let mut x = 122u8;
-            let x_ptr = &mut x as Ptr;
+            let num_ptr = alloc(layout);
+            write_number(num_ptr, 10f64);
 
-            write_pointer(obj_ptr, x_ptr.clone());
+            let layout = Layout::array::<u8>(8).unwrap();
+            let obj_ptr = alloc(layout);
+
+            write_pointer(obj_ptr, num_ptr.clone());
             let read_ptr = read_pointer(obj_ptr);
 
-            assert_eq!(read_ptr, x_ptr);
-            assert_eq!(*read_ptr, x);
+            assert_eq!(read_ptr, num_ptr);
+            assert_eq!(read_number(read_ptr), 10f64);
         }
     }
 
