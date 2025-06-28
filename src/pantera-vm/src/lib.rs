@@ -166,7 +166,15 @@ impl VM {
                                 },
                                 _ => panic!("A string must only be added to another string")
                             }
-                        }
+                        },
+                        Value::Object(ptr1) => {
+                            match val2 {
+                                Value::Object(ptr2) => {
+                                    self.execution_stack.push(Value::Object(self.compiler.heap_manager.concatenate_objects(ptr1, ptr2)));
+                                },
+                                _ => panic!("A string must only be added to another string")
+                            }
+                        },
                         _ => {
                             todo!()
                         }
@@ -295,7 +303,16 @@ impl VM {
                                 }
                             }
                         }
-                        Value::Object(_) => todo!()
+                        Value::Object(ptr) => {
+                            match val2 {
+                                Value::Object(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false))
+                                }
+                            }
+                        },
                     }
                 },
                 OP_NE => {
@@ -349,7 +366,16 @@ impl VM {
                                 }
                             }
                         },
-                        Value::Object(_) => todo!(),
+                        Value::Object(ptr) => {
+                            match val2 {
+                                Value::Object(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(true))
+                                }
+                            }
+                        },
                     }
                 },
                 OP_UNARY_NOT => {

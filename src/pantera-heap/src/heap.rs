@@ -106,6 +106,23 @@ impl HeapManager {
         }
     }
 
+    pub fn compare_objects(obj1: Ptr, obj2: Ptr) -> bool {
+        obj1 == obj2
+    }
+
+    pub fn concatenate_objects(&mut self, obj1: Ptr, obj2: Ptr) -> Ptr {
+        unsafe {
+            let mut obj_main = HashTable::from(obj1);
+            let obj_sec = HashTable::from(obj2);
+
+            obj_sec.get_all().into_iter().for_each(|en| {
+                obj_main.set(en.key, en.value);
+            });
+
+            obj_main.entries
+        }
+    }
+
     // < Object
 
     // > Strings
