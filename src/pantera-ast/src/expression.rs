@@ -24,7 +24,7 @@ pub struct Identifier {
 
 #[derive(Debug, Clone)]
 pub struct AssignmentExpression {
-    pub assignee: String,
+    pub assignee: Expression,
     pub value: Expression
 }
 

@@ -219,7 +219,7 @@ impl Parser{
 
                 statements.push(Statement::Expression(Box::from(ExpressionStatement {
                     expr: Expression::Assigment(Box::from(AssignmentExpression {
-                        assignee: alias.clone(),
+                        assignee: Expression::Identifier(alias.clone()),
                         value: Expression::Binary(Box::from(BinaryExpression {
                             left: Expression::Identifier(alias.clone()),
                             operator: if iterate_reverse {Operator::Minus} else {Operator::Plus} ,
@@ -370,17 +370,20 @@ impl Parser{
         if self.peek().typ == TokenType::Equal {
             self.advance();
             let right = self.parse_expression()?;
-            if matches!(left, Expression::Identifier(_)) {
-                return Ok(Expression::Assigment(Box::new(AssignmentExpression{
-                    assignee: left.get_identifier().unwrap().to_string(),
-                    value: right,
-                })));
-            } else {
-                return Err(ParseError{
-                    message: "Incorrect lvalue".to_string(),
-                    line: 1,
-                })
-            }
+            return match left {
+                Expression::Identifier(_) | Expression::Member(_) => {
+                    Ok(Expression::Assigment(Box::new(AssignmentExpression{
+                        assignee: left,
+                        value: right,
+                    })))
+                },
+                _ => {
+                    Err(ParseError{
+                        message: "Incorrect lvalue".to_string(),
+                        line: 1,
+                    })
+                }
+            };
         }
 
         Ok(left)

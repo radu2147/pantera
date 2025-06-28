@@ -106,6 +106,13 @@ impl HeapManager {
         }
     }
 
+    pub fn set_property_for_object(&self, obj_ptr: Ptr, key: Ptr, val: Value) {
+        unsafe {
+            let mut map = HashTable::from(obj_ptr);
+            map.set(key, val);
+        }
+    }
+
     pub fn compare_objects(obj1: Ptr, obj2: Ptr) -> bool {
         obj1 == obj2
     }
@@ -145,24 +152,7 @@ impl HeapManager {
     }
 
     pub fn compare_strings(string1: Ptr, string2: Ptr) -> bool {
-        unsafe {
-            let mut it_str1 = string1;
-            let mut it_str2 = string2;
-            loop {
-                if read_byte(it_str1) != read_byte(it_str2) {
-                    return false;
-                }
-                if read_byte(it_str1) == NULL {
-                    break;
-                }
-
-                it_str1 = it_str1.add(1);
-                it_str2 = it_str2.add(1);
-
-            }
-
-            true
-        }
+        string1 == string2
     }
 
     fn check_string_is_interned(&self, string: &str) -> Option<Ptr> {
