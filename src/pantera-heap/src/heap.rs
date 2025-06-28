@@ -8,14 +8,19 @@ use crate::value::Value;
 pub type Ptr = *mut u8;
 
 #[derive(Debug)]
-pub struct HeapManager {}
+pub struct HeapManager {
+    pub interned_strings: Vec<Ptr>
+}
 
 impl HeapManager {
 
     pub fn new() ->Self {
-        Self {}
+        Self {
+            interned_strings: vec![]
+        }
     }
 
+    // > Object
     pub fn allocate_object(&mut self, val: HashMap<Ptr, Value>) -> Result<Ptr, LayoutError> {
         unsafe {
             let mut map = HashTable::new();
@@ -30,7 +35,7 @@ impl HeapManager {
 
     pub fn get_object(obj_ptr: Ptr) -> HashMap<Ptr, Box<Value>> {
         unsafe {
-            let mut map = HashTable::from(obj_ptr.sub(1));
+            let mut map = HashTable::from(obj_ptr);
             let elems = map.get_all();
 
             let mut rez = HashMap::new();
@@ -47,14 +52,7 @@ impl HeapManager {
         size_of::<Ptr>()
     }
 
-    pub fn compute_object_byte_size(val: &HashMap<Ptr, Value>) -> usize {
-        let keys_length = val.keys().len() * Self::get_object_entry_size();
-        let values_length = val.values().len() * Self::get_object_entry_size();
-
-        keys_length + values_length + 1usize + 4usize
-    }
-
-    pub fn get_raw_value(value_bytes: Vec<u8>, typ: Type) -> Value {
+    pub fn get_value_from_bytes(value_bytes: Vec<u8>, typ: Type) -> Value {
         match typ {
             Type::String => {
                 let mut bytes :[u8;Self::get_object_entry_size()] = [0u8;Self::get_object_entry_size()];
@@ -96,28 +94,19 @@ impl HeapManager {
     }
 
     pub fn get_property_from_object(&self, obj_ptr: Ptr, name: &Ptr) -> Value {
-        // let binding = HashMap::new();
-        // let HeapValue::String(obj_prop) = Self::get_from_heap(*name) else {panic!("Unreachable");};
-        // let offset = self.object_keys.get(&obj_ptr).unwrap_or(&binding).get(&obj_prop);
-        // if let Some(off) = offset {
-        //     unsafe {
-        //         let mut val_ptr = obj_ptr.add(1 + 4 + Self::get_object_entry_size() * (*off + 1) + (Self::get_object_entry_size() +1) * (*off));
-        //         let mut val_as_bytes: Vec<u8> = vec![];
-        //         let typ = Type::from(*val_ptr);
-        //         val_ptr = val_ptr.add(1);
-        //
-        //         for _j in 0..Self::get_object_entry_size() {
-        //             val_as_bytes.push(*val_ptr);
-        //             val_ptr = val_ptr.add(1);
-        //         }
-        //
-        //         Self::get_raw_value(val_as_bytes, typ)
-        //     }
-        // } else {
-        //     Value::Null
-        // }
-        Value::Null
+        unsafe {
+            let mut map = HashTable::from(obj_ptr);
+            let elem = map.get(&name);
+
+            if elem.is_none() {
+                return Value::Null;
+            }
+
+            elem.unwrap()
+        }
     }
+
+    // < Object
 
     // > Strings
 
@@ -159,13 +148,31 @@ impl HeapManager {
         }
     }
 
+    fn check_string_is_interned(&self, string: &str) -> Option<Ptr> {
+        for st in &self.interned_strings {
+            unsafe {
+                let interned_str = read_string(st.add(1));
+                if interned_str == string {
+                    return Some(*st);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn allocate_string(&mut self, string: String) -> Result<Ptr, LayoutError> {
+        if let Some(existing_str) = self.check_string_is_interned(&string) {
+            return Ok(existing_str);
+        }
         unsafe {
             let layout = Layout::array::<u8>(string.len() + 1 + 1)?;
             let ptr = alloc(layout);
 
             write_byte(ptr, Type::String as u8);
             write_string(ptr.add(1), string);
+
+            self.interned_strings.push(ptr);
 
             Ok(ptr)
         }

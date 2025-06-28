@@ -25,7 +25,7 @@ impl Display for Value {
             },
             Self::Object(obj_ptr) => {
                 unsafe {
-                    let obj = HeapManager::get_object(obj_ptr.add(1));
+                    let obj = HeapManager::get_object(*obj_ptr);
                     let mut str = String::new();
                     str = str.add("{ ");
                     let mut pairs = vec![];

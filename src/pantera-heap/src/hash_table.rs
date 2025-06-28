@@ -7,6 +7,7 @@ use crate::value::Value;
 
 const TABLE_SIZE: usize = 50;
 
+#[derive(Debug)]
 pub struct HashEntry {
     pub key: Ptr,
     pub value: Value
@@ -36,7 +37,7 @@ pub unsafe fn get_value(entry: Ptr) -> Option<Value> {
 
     let bytes = read_bytes(entry.add(8 + 1), 8);
 
-    let val = HeapManager::get_raw_value(bytes, get_type(entry));
+    let val = HeapManager::get_value_from_bytes(bytes, get_type(entry));
     Some(val)
 }
 
@@ -149,7 +150,7 @@ impl HashTable {
     }
 
     pub unsafe fn get(&self, key: &Ptr) -> Option<Value> {
-        let entry = self.find_entry(key);
+        let entry = self.find_entry(&key);
         if get_key(entry).is_null() {
             return None;
         }
@@ -191,15 +192,28 @@ impl HashTable {
 }
 
 mod tests {
+    use std::alloc::{alloc, Layout};
+    use crate::bytes::{write_byte, write_string};
     use crate::hash_table::HashTable;
     use crate::heap::Ptr;
+    use crate::types::Type;
     use crate::value::Value;
+
+    unsafe fn alloc_key(str: String) -> Ptr {
+        let layout = Layout::array::<u8>(str.len()).unwrap();
+        let ptr = alloc(layout);
+
+        write_byte(ptr, Type::String as u8);
+        write_string(ptr.add(1), str);
+
+        ptr
+    }
 
     #[test]
     pub fn test_set() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = 12usize as Ptr;
+            let key1 = alloc_key("Test".to_string());
             table.set(key1.clone(), Value::Number(12f32));
 
             let val = table.get(&key1).unwrap();
@@ -211,10 +225,10 @@ mod tests {
     pub fn test_set_collisions() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = 12usize as Ptr;
+            let key1 = alloc_key("Test1".to_string());
             table.set(key1.clone(), Value::Number(12f32));
 
-            let key2 = 62usize as Ptr;
+            let key2 = alloc_key("Test2".to_string());
             table.set(key2.clone(), Value::Number(13f32));
 
             let val = table.get(&key1).unwrap();
