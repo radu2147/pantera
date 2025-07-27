@@ -3,7 +3,7 @@ use pantera_heap::value::Value;
 
 #[derive(Debug)]
 pub struct Stack {
-    elements: Vec<Value>,
+    pub elements: Vec<Value>,
     top: usize,
     pub offset: usize
 }

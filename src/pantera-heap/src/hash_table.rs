@@ -74,7 +74,8 @@ pub unsafe fn set_value(entry: Ptr, value: Value) {
 
 pub struct HashTable {
     pub entries: *mut u8,
-    count: usize
+    count: usize,
+    pub layout: Option<Layout>
 }
 
 impl HashTable {
@@ -86,13 +87,15 @@ impl HashTable {
         Self {
             entries: obj_ptr,
             count: 0,
+            layout: Some(layout)
         }
     }
 
     pub unsafe fn from(obj_ptr: Ptr) -> Self {
         Self {
             entries: obj_ptr,
-            count: read_number(obj_ptr.add(1)) as usize
+            count: read_number(obj_ptr.add(1)) as usize,
+            layout: None
         }
     }
 

@@ -17,8 +17,8 @@ pub enum Context {
 }
 
 #[derive(Debug)]
-pub struct Compiler {
-    pub heap_manager: HeapManager,
+pub struct Compiler<'a> {
+    pub heap_manager: &'a mut HeapManager,
     pub code: Vec<Bytecode>,
     pub env: Box<Env>,
     pub break_stmt: Vec<Vec<usize>>,
@@ -27,8 +27,8 @@ pub struct Compiler {
     pub active_func_args: HashMap<String, Vec<String>>,
 }
 
-impl Compiler {
-    pub fn new() -> Self {
+impl<'a> Compiler<'a> {
+    pub fn new(heap_manager: &'a mut HeapManager) -> Self {
         Compiler {
             break_stmt: vec![],
             code: vec![],
@@ -36,16 +36,18 @@ impl Compiler {
             context: Context::Global,
             globals: HashMap::new(),
             active_func_args: HashMap::new(),
-            heap_manager: HeapManager::new()
+            heap_manager
         }
     }
-    pub fn compile(&mut self, mut parser: Parser) {
+    pub fn compile(mut self, mut parser: Parser) -> Vec<Bytecode> {
         let program = parser.parse_program().unwrap();
-        program.into_iter().for_each(|p| p.visit(self));
+        program.into_iter().for_each(|p| p.visit(&mut self));
+
+        self.code
     }
 }
 
-impl Compiler {
+impl Compiler<'_> {
     pub fn emit_byte(&mut self, byte_code: Bytecode) {
         self.code.push(byte_code);
     }
@@ -58,13 +60,13 @@ impl Compiler {
     pub fn emit_number(&mut self, number: f32) {
         self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Number as Bytecode);
-        self.convert_number_to_bytes(number).into_iter().for_each(|bc| self.emit_byte(bc));
+        Self::convert_number_to_bytes(number).into_iter().for_each(|bc| self.emit_byte(bc));
     }
 
     pub fn emit_boolean(&mut self, val: bool) {
         self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Boolean as Bytecode);
-        self.emit_byte(self.convert_bool_to_byte(val));
+        self.emit_byte(Self::convert_bool_to_byte(val));
     }
 
     pub fn emit_null(&mut self) {
@@ -94,34 +96,34 @@ impl Compiler {
     }
 
     pub fn back_patch(&mut self, index: usize) {
-        let numb = self.convert_number_to_bytes(self.code.len() as f32);
+        let numb = Self::convert_number_to_bytes(self.code.len() as f32);
         self.code[index] = numb[0];
         self.code[index + 1] = numb[1];
         self.code[index + 2] = numb[2];
         self.code[index + 3] = numb[3];
     }
 
-    pub fn convert_number_to_bytes(&self, number: f32) -> [u8;4] {
+    pub fn convert_number_to_bytes(number: f32) -> [u8;4] {
         number.to_le_bytes()
     }
 
-    pub fn convert_bool_to_byte(&self, val: bool) -> u8 {
+    pub fn convert_bool_to_byte(val: bool) -> u8 {
         if val{
             return 1;
         }
         0
     }
 
-    pub fn convert_bool_from_byte(&self, val: u8) -> bool {
+    pub fn convert_bool_from_byte(val: u8) -> bool {
         val == 1
     }
 
-    pub fn convert_number_from_bytes(&self, number: [u8; 4]) -> f32 {
+    pub fn convert_number_from_bytes(number: [u8; 4]) -> f32 {
         f32::from_le_bytes(number)
     }
 }
 
-impl ExpressionVisitorMut for Compiler {
+impl ExpressionVisitorMut for Compiler<'_> {
     fn visit_nil_expression(&mut self) {
         self.emit_null();
     }
@@ -137,7 +139,7 @@ impl ExpressionVisitorMut for Compiler {
     fn visit_string_expression(&mut self, value: &String) {
         self.emit_bytes(OP_PUSH, Type::String as Bytecode);
 
-        let ptr = self.heap_manager.allocate_string(value.clone()).unwrap();
+        let ptr = self.heap_manager.allocate_compiled_string(value.clone()).unwrap();
         (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
@@ -230,7 +232,7 @@ impl ExpressionVisitorMut for Compiler {
     }
 }
 
-impl StatementVisitorMut for Compiler {
+impl StatementVisitorMut for Compiler<'_> {
     fn visit_function_body(&mut self, stmt: &BlockStatement) {
         self.env = Box::new(Env::new_frame(self.env.clone()));
         self.env.set_variable("__offset__".to_string());
@@ -348,7 +350,7 @@ impl StatementVisitorMut for Compiler {
         let loc = self.code.len();
         self.visit_local_statement(&stmt.body);
         self.emit_byte(OP_JUMP);
-        let beg = self.convert_number_to_bytes(loc as f32);
+        let beg = Self::convert_number_to_bytes(loc as f32);
         for index in 0..4 {
             self.emit_byte(beg[index]);
         }

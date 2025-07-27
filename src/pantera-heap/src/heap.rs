@@ -1,6 +1,6 @@
-use std::alloc::{alloc, Layout, LayoutError};
+use std::alloc::{alloc, dealloc, Layout, LayoutError};
 use std::collections::HashMap;
-use crate::bytes::{read_byte, read_bytes_until_null, read_string, write_byte, write_string, NULL};
+use crate::bytes::{read_bytes_until_null, read_string, write_byte, write_string};
 use crate::hash_table::HashTable;
 use crate::types::Type;
 use crate::value::Value;
@@ -9,14 +9,25 @@ pub type Ptr = *mut u8;
 
 #[derive(Debug)]
 pub struct HeapManager {
-    pub interned_strings: Vec<Ptr>
+    pub interned_strings: HashMap<Ptr, bool>,
+    pub objects: HashMap<Ptr, bool>,
+    heap_layout: HashMap<Ptr, Layout>
 }
 
 impl HeapManager {
 
     pub fn new() ->Self {
         Self {
-            interned_strings: vec![]
+            interned_strings: HashMap::new(),
+            objects: HashMap::new(),
+            heap_layout: HashMap::new()
+        }
+    }
+
+    pub fn free(&mut self, ptr: Ptr) {
+        let layout = self.heap_layout.remove(&ptr).unwrap();
+        unsafe {
+            dealloc(ptr, layout);
         }
     }
 
@@ -29,8 +40,16 @@ impl HeapManager {
                 map.set(key, val);
             }
 
+            self.objects.insert(map.entries, false);
+            self.heap_layout.insert(map.entries, map.layout.unwrap());
+
             Ok(map.entries)
         }
+    }
+
+    pub fn free_object(&mut self, ptr: Ptr) {
+        self.objects.remove(&ptr);
+        self.free(ptr);
     }
 
     pub fn get_object(obj_ptr: Ptr) -> HashMap<Ptr, Box<Value>> {
@@ -156,7 +175,7 @@ impl HeapManager {
     }
 
     fn check_string_is_interned(&self, string: &str) -> Option<Ptr> {
-        for st in &self.interned_strings {
+        for st in self.interned_strings.keys() {
             unsafe {
                 let interned_str = read_string(st.add(1));
                 if interned_str == string {
@@ -168,7 +187,15 @@ impl HeapManager {
         None
     }
 
+    pub fn allocate_compiled_string(&mut self, string: String) -> Result<Ptr, LayoutError> {
+        self.allocate_string_internal(string, true)
+    }
+
     pub fn allocate_string(&mut self, string: String) -> Result<Ptr, LayoutError> {
+        self.allocate_string_internal(string, false)
+    }
+
+    fn allocate_string_internal(&mut self, string: String, is_from_compilation: bool) -> Result<Ptr, LayoutError> {
         if let Some(existing_str) = self.check_string_is_interned(&string) {
             return Ok(existing_str);
         }
@@ -179,10 +206,16 @@ impl HeapManager {
             write_byte(ptr, Type::String as u8);
             write_string(ptr.add(1), string);
 
-            self.interned_strings.push(ptr);
+            self.interned_strings.insert(ptr, is_from_compilation);
+            self.heap_layout.insert(ptr, layout);
 
             Ok(ptr)
         }
+    }
+
+    pub fn free_string(&mut self, ptr: Ptr) {
+        self.interned_strings.remove(&ptr);
+        self.free(ptr);
     }
 
     // > Strings

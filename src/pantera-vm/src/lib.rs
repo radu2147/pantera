@@ -1,4 +1,6 @@
-mod stack;
+pub mod stack;
+pub mod gc;
+mod runtime_context;
 
 use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
@@ -8,15 +10,18 @@ use pantera_compiler::bytecode::{OP_PUSH, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE
 use pantera_heap::heap::HeapManager;
 use crate::stack::Stack;
 use pantera_heap::value::Value;
+use crate::gc::GC;
+use crate::runtime_context::RuntimeContext;
 
-pub struct VM {
-    compiler: Compiler,
-    execution_stack: Stack,
+pub struct VM<'a> {
+    code: Vec<Bytecode>,
+    execution_stack: &'a mut Stack,
     ip: usize,
-    globals: HashMap<u16, Value>
+    globals: &'a mut HashMap<u16, Value>,
+    gc: &'a mut GC<'a>
 }
 
-impl VM {
+impl<'a> VM<'a> {
     fn read_constant(&mut self) -> Value {
         let typ = Type::from(*self.peek().unwrap());
         self.advance();
@@ -25,7 +30,7 @@ impl VM {
             Type::Boolean => {
                 let val = *self.peek().unwrap();
                 self.advance();
-                Value::Bool(self.compiler.convert_bool_from_byte(val))
+                Value::Bool(Compiler::convert_bool_from_byte(val))
             },
             Type::Number => {
                 let mut bytes: [Bytecode; 4] = [0, 0, 0, 0];
@@ -33,7 +38,7 @@ impl VM {
                     bytes[i] = *self.peek().unwrap();
                     self.advance();
                 }
-                Value::Number(self.compiler.convert_number_from_bytes(bytes))
+                Value::Number(Compiler::convert_number_from_bytes(bytes))
             },
             Type::Function => {
                 let mut bytes: [Bytecode; 4] = [0, 0, 0, 0];
@@ -43,7 +48,7 @@ impl VM {
                 }
                 let arity = *self.peek().unwrap();
                 self.advance();
-                Value::Function(self.compiler.convert_number_from_bytes(bytes) as usize, arity)
+                Value::Function(Compiler::convert_number_from_bytes(bytes) as usize, arity)
             },
             Type::String => {
                 let mut bytes: [Bytecode; HeapManager::get_object_entry_size()] = [0;HeapManager::get_object_entry_size()];
@@ -130,7 +135,7 @@ impl VM {
                         self.advance();
                     }
 
-                    let num = self.compiler.convert_number_from_bytes(bytes) as usize;
+                    let num = Compiler::convert_number_from_bytes(bytes) as usize;
                     let val = self.execution_stack.pop().unwrap();
                     if let Value::Bool(false) = val {
                         self.ip = num;
@@ -143,7 +148,7 @@ impl VM {
                         bytes[i] = *self.peek().unwrap();
                         self.advance();
                     }
-                    let num = self.compiler.convert_number_from_bytes(bytes) as usize;
+                    let num = Compiler::convert_number_from_bytes(bytes) as usize;
                     self.ip = num;
                 }
                 OP_ADD => {
@@ -162,7 +167,8 @@ impl VM {
                         Value::String(ptr1) => {
                             match val2 {
                                 Value::String(ptr2) => {
-                                    self.execution_stack.push(Value::String(self.compiler.heap_manager.concatenate_strings(ptr2, ptr1)));
+                                    self.execution_stack.push(Value::String(self.gc.heap_manager.concatenate_strings(ptr2, ptr1)));
+                                    self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
                                 _ => panic!("A string must only be added to another string")
                             }
@@ -170,7 +176,8 @@ impl VM {
                         Value::Object(ptr1) => {
                             match val2 {
                                 Value::Object(ptr2) => {
-                                    self.execution_stack.push(Value::Object(self.compiler.heap_manager.concatenate_objects(ptr1, ptr2)));
+                                    self.execution_stack.push(Value::Object(self.gc.heap_manager.concatenate_objects(ptr1, ptr2)));
+                                    self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
                                 _ => panic!("A string must only be added to another string")
                             }
@@ -588,7 +595,8 @@ impl VM {
                         obj.insert(str_ptr, values[i].clone());
                     }
 
-                    let obj_ptr = self.compiler.heap_manager.allocate_object(obj).unwrap();
+                    let obj_ptr = self.gc.heap_manager.allocate_object(obj).unwrap();
+                    self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
 
                     self.execution_stack.push(Value::Object(obj_ptr));
                 },
@@ -597,7 +605,7 @@ impl VM {
                     let Value::Object(obj) = self.execution_stack.pop().unwrap() else {panic!("Not an object");};
                     let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
 
-                    let val = self.compiler.heap_manager.get_property_from_object(obj, &key);
+                    let val = self.gc.heap_manager.get_property_from_object(obj, &key);
                     self.execution_stack.push(val);
                 },
                 OP_SET_PROPERTY => {
@@ -608,7 +616,7 @@ impl VM {
 
                     let val_to_set = self.execution_stack.pop().unwrap();
 
-                    self.compiler.heap_manager.set_property_for_object(obj, prop, val_to_set);
+                    self.gc.heap_manager.set_property_for_object(obj, prop, val_to_set);
                 }
                 _ => {
                     todo!();
@@ -617,17 +625,18 @@ impl VM {
         }
     }
 
-    pub fn init(compiler: Compiler) -> Self {
+    pub fn new(code: Vec<Bytecode>, execution_stack:  &'a mut Stack, globals: &'a mut HashMap<u16, Value>, gc: &'a mut GC<'a>) -> Self {
         Self {
-            compiler,
-            execution_stack: Stack::init(),
+            code,
+            execution_stack,
             ip: 0usize,
-            globals: HashMap::new()
+            globals,
+            gc
         }
     }
 
     fn peek(&self) -> Option<&Bytecode> {
-        self.compiler.code.get(self.ip)
+        self.code.get(self.ip)
     }
 
     fn advance(&mut self) {
@@ -635,6 +644,6 @@ impl VM {
     }
 
     fn is_at_end(&self) -> bool {
-        self.ip == self.compiler.code.len()
+        self.ip == self.code.len()
     }
 }
