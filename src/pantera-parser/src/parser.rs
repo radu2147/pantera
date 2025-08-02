@@ -551,7 +551,7 @@ impl Parser{
                     }))
                 }
 
-            } else if self.peek().typ == TokenType::Dot {
+            } else if self.peek().typ == TokenType::Possesive {
                 self.advance();
                 let member = self.parse_primary()?;
                 if matches!(member, Expression::Identifier(_)) {
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     pub fn test_member() {
-        let result = get_new_parser("a.b.c;");
+        let result = get_new_parser("a's b's c;");
         assert_eq!(result.len(), 1);
 
         if let GlobalStatement::Statement(Statement::Expression(ref func_call)) = result.get(0).unwrap() {
@@ -990,7 +990,7 @@ mod tests {
                 // function args
                 assert!(matches!(member.callee, Expression::Member(_)));
 
-                assert!(matches!(member.property, Expression::Identifier(_)));
+                assert_eq!(member.property, "c");
             }
             else {
                 assert!(false);
@@ -1002,7 +1002,7 @@ mod tests {
 
     #[test]
     pub fn test_member_call() {
-        let result = get_new_parser("a.b();");
+        let result = get_new_parser("a's b();");
         assert_eq!(result.len(), 1);
 
         if let GlobalStatement::Statement(Statement::Expression(ref func_call)) = result.get(0).unwrap() {
@@ -1026,7 +1026,7 @@ mod tests {
 
     #[test]
     pub fn test_member_call_intertwined() {
-        let result = get_new_parser("a.b(x)c;");
+        let result = get_new_parser("a's b(x)c;");
         assert_eq!(result.len(), 1);
 
         if let GlobalStatement::Statement(Statement::Expression(ref func_call)) = result.get(0).unwrap() {
@@ -1051,7 +1051,7 @@ mod tests {
 
     #[test]
     pub fn test_call_member() {
-        let result = get_new_parser("b(x)c.a;");
+        let result = get_new_parser("b(x)c's a;");
         assert_eq!(result.len(), 1);
 
         if let GlobalStatement::Statement(Statement::Expression(ref func_call)) = result.get(0).unwrap() {

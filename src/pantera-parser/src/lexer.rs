@@ -205,6 +205,19 @@ impl Lexer {
                     typ: TokenType::String(string_literal),
                     line: self.line,
                 });
+            },
+            '\'' => {
+                if self.match_char('s') && self.match_char(' ') {
+                    self.tokens.push(Token {
+                        typ: TokenType::Possesive,
+                        line: self.line
+                    })
+                } else {
+                    return Err(ParseError {
+                        message: "Unterminated string.".to_string(),
+                        line: self.line,
+                    });
+                }
             }
             _ => {
                 return Err(ParseError {
