@@ -9,7 +9,8 @@ pub enum Value {
     Null,
     Function(usize, u8),
     String(Ptr),
-    Object(Ptr)
+    Object(Ptr),
+    Array(Ptr)
 }
 
 impl Display for Value {
@@ -39,6 +40,23 @@ impl Display for Value {
                     }
                     str = str.add(pairs.join(", ").as_str());
                     str = str.add(" }");
+
+                    f.write_str(&str)
+                }
+            },
+            Self::Array(arr_ptr) => {
+                unsafe {
+                    let arr = HeapManager::get_array(*arr_ptr);
+                    let mut str = String::new();
+                    str = str.add("[ ");
+                    let mut pairs = vec![];
+                    for val in arr {
+                        let mut pair = String::new();
+                        pair = pair.add(&format!("{}", val));
+                        pairs.push(pair);
+                    }
+                    str = str.add(pairs.join(", ").as_str());
+                    str = str.add(" ]");
 
                     f.write_str(&str)
                 }

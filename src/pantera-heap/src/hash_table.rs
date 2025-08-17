@@ -67,6 +67,10 @@ pub unsafe fn set_value(entry: Ptr, value: Value) {
         Value::Object(obj_ptr) => {
             *dest = Type::Object as u8;
             write_pointer(dest.add(1), obj_ptr);
+        },
+        Value::Array(arr_ptr) => {
+            *dest = Type::Array as u8;
+            write_pointer(dest.add(1), arr_ptr);
         }
     }
 }

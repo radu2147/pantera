@@ -13,6 +13,7 @@ pub enum Expression {
     String(String),
     Identifier(String),
     Object(Box<ObjectExpression>),
+    Array(Box<ArrayExpression>),
     Assigment(Box<AssignmentExpression>)
 }
 
@@ -31,6 +32,11 @@ pub struct AssignmentExpression {
 #[derive(Debug, Clone)]
 pub struct ObjectExpression {
     pub properties: Vec<Expression>,
+    pub values: Vec<Expression>
+}
+
+#[derive(Debug, Clone)]
+pub struct ArrayExpression {
     pub values: Vec<Expression>
 }
 

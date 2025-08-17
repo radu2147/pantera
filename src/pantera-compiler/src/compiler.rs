@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use pantera_ast::expression::{AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
+use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY, OP_ALLOCATE_ARRAY};
 use crate::env::Env;
 use pantera_heap::heap::HeapManager;
 use pantera_heap::types::Type;
@@ -229,6 +229,12 @@ impl ExpressionVisitorMut for Compiler<'_> {
         value.values.iter().for_each(|val| self.visit_expression(val));
         self.emit_number(value.properties.len() as f32);
         self.emit_byte(OP_ALLOCATE);
+    }
+
+    fn visit_array_expression(&mut self, value: &ArrayExpression) {
+        value.values.iter().for_each(|val| self.visit_expression(val));
+        self.emit_number(value.values.len() as f32);
+        self.emit_byte(OP_ALLOCATE_ARRAY);
     }
 }
 

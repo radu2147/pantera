@@ -4,3 +4,4 @@ pub mod types;
 mod hash_table;
 mod bytes;
 mod utils;
+mod array;

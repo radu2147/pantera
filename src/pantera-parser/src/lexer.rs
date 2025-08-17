@@ -51,6 +51,14 @@ impl Lexer {
                 typ: TokenType::RightBrace,
                 line: self.line,
             }),
+            '[' => self.tokens.push(Token {
+                typ: TokenType::LeftSquareBracket,
+                line: self.line
+            }),
+            ']' => self.tokens.push(Token {
+                typ: TokenType::RightSquareBracket,
+                line: self.line
+            }),
             '{' => self.tokens.push(Token {
                 typ: TokenType::LeftParen,
                 line: self.line,

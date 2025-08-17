@@ -50,6 +50,7 @@ generate_bytecode! (
     OP_CALL,
     OP_RETURN,
     OP_ALLOCATE,
+    OP_ALLOCATE_ARRAY,
     OP_ACCESS,
     OP_SET_PROPERTY
 );

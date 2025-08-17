@@ -1,5 +1,5 @@
 use std::string::ToString;
-use pantera_ast::expression::{AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, Identifier, MemberExpression, ObjectExpression, Operator, UnaryExpression};
+use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, Identifier, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use crate::token::{Token, TokenType};
 use pantera_ast::statement::{BlockStatement, DeclarationKind, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, GlobalStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, Range, ReturnStatement, Statement};
 use crate::errors::ParseError;
@@ -654,6 +654,25 @@ impl Parser{
         })))
     }
 
+    pub fn parse_array(&mut self) -> ParserResult<Expression> {
+        let mut keys = vec![];
+        let mut values = vec![];
+        while self.peek().typ != TokenType::RightSquareBracket {
+            let expr = self.parse_expression()?;
+
+            values.push(expr);
+            keys.push(Expression::Number(keys.len() as f32));
+
+            if self.peek().typ == TokenType::Comma {
+                self.consume(TokenType::Comma, "This error shouldn't be displayed ever")?;
+            }
+        }
+        self.advance();
+        Ok(Expression::Array(Box::new(ArrayExpression{
+            values
+        })))
+    }
+
     pub fn parse_primary(&mut self) -> ParserResult<Expression> {
         let tok = self.advance().unwrap();
         match &tok.typ {
@@ -664,6 +683,7 @@ impl Parser{
             TokenType::Number(num) => Ok(Expression::Number(num.clone())),
             TokenType::Identifier(ident) => Ok(Expression::Identifier(ident.to_string())),
             TokenType::LeftParen => self.parse_object(),
+            TokenType::LeftSquareBracket => self.parse_array(),
             TokenType::LeftBrace => {
                 let expr = self.parse_expression()?;
                 self.consume(TokenType::RightBrace, "Expected ')' at the end of expression")?;

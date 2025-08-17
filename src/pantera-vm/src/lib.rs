@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
-use pantera_heap::heap::HeapManager;
+use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE_ARRAY, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
+use pantera_heap::heap::{HeapManager, Ptr};
 use crate::stack::Stack;
 use pantera_heap::value::Value;
 use crate::gc::GC;
@@ -62,6 +62,7 @@ impl<'a> VM<'a> {
                 Value::String(ptr)
             }
             Type::Object => todo!(),
+            Type::Array => todo!(),
             Type::Empty => panic!("Not a type")
         }
     }
@@ -320,6 +321,16 @@ impl<'a> VM<'a> {
                                 }
                             }
                         },
+                        Value::Array(ptr) => {
+                            match val2 {
+                                Value::Array(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false))
+                                }
+                            }
+                        },
                     }
                 },
                 OP_NE => {
@@ -380,6 +391,16 @@ impl<'a> VM<'a> {
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(true))
+                                }
+                            }
+                        },
+                        Value::Array(ptr) => {
+                            match val2 {
+                                Value::Array(ptr2) => {
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                },
+                                _ => {
+                                    self.execution_stack.push(Value::Bool(false))
                                 }
                             }
                         },
@@ -600,6 +621,19 @@ impl<'a> VM<'a> {
 
                     self.execution_stack.push(Value::Object(obj_ptr));
                 },
+                OP_ALLOCATE_ARRAY => {
+                    self.advance();
+                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                    let mut values = vec![];
+                    for _i in 0..(len as usize) {
+                        values.push(self.execution_stack.pop().unwrap());
+                    }
+
+                    let obj_ptr = self.gc.heap_manager.allocate_array(values).unwrap();
+                    self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
+
+                    self.execution_stack.push(Value::Array(obj_ptr));
+                }
                 OP_ACCESS => {
                     self.advance();
                     let Value::Object(obj) = self.execution_stack.pop().unwrap() else {panic!("Not an object");};

@@ -5,7 +5,8 @@ pub enum Type {
     Function = 3,
     String = 4,
     Object = 5,
-    Null = 6
+    Array = 6,
+    Null = 7
 }
 
 impl Into<u8> for Type {
@@ -17,7 +18,8 @@ impl Into<u8> for Type {
             Type::Function => 3u8,
             Type::String => 4u8,
             Type::Object => 5u8,
-            Type::Null => 6u8
+            Type::Array => 6u8,
+            Type::Null => 7u8
         }
     }
 }
@@ -25,12 +27,13 @@ impl Into<u8> for Type {
 impl From<u8> for Type {
     fn from(value: u8) -> Self {
         match value {
-            6 => Type::Null,
             1 => Type::Number,
             2 => Type::Boolean,
             3 => Type::Function,
             4 => Type::String,
             5 => Type::Object,
+            6 => Type::Array,
+            7 => Type::Null,
             0 => Type::Empty,
             _ => panic!("Type doesn't exist")
         }

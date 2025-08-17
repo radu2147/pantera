@@ -1,5 +1,6 @@
 use std::alloc::{alloc, dealloc, Layout, LayoutError};
 use std::collections::HashMap;
+use crate::array::Array;
 use crate::bytes::{read_bytes_until_null, read_string, write_byte, write_string};
 use crate::hash_table::HashTable;
 use crate::types::Type;
@@ -150,6 +151,38 @@ impl HeapManager {
     }
 
     // < Object
+
+    // > Arrays
+
+    pub fn allocate_array(&mut self, val: Vec<Value>) -> Result<Ptr, LayoutError> {
+        unsafe {
+            let len = val.len();
+            let mut arr = Array::of(len);
+
+            for (index, val) in val.into_iter().enumerate() {
+                arr.set(len - 1 - index, val);
+            }
+
+            self.objects.insert(arr.entries, false);
+            self.heap_layout.insert(arr.entries, arr.layout.unwrap());
+
+            Ok(arr.entries)
+        }
+    }
+
+    pub fn get_array(obj_ptr: Ptr) -> Vec<Value> {
+        unsafe {
+            let mut arr = Array::from(obj_ptr);
+
+            arr.get_all()
+        }
+    }
+
+    pub fn free_array(&mut self, ptr: Ptr) {
+        self.free_object(ptr);
+    }
+
+    // < Arrays
 
     // > Strings
 

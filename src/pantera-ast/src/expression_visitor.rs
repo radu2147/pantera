@@ -1,4 +1,4 @@
-use crate::expression::{AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, UnaryExpression};
+use crate::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, UnaryExpression};
 
 pub trait ExpressionVisitor {
     fn visit_expression(&self, expression: &Expression) {
@@ -14,7 +14,8 @@ pub trait ExpressionVisitor {
             Expression::Unary(ref value) => self.visit_unary_expression(value),
             Expression::Group(ref value) => self.visit_group_expression(value),
             Expression::Member(ref value) => self.visit_member_expression(value),
-            Expression::Object(ref value) => self.visit_object_expression(value)
+            Expression::Object(ref value) => self.visit_object_expression(value),
+            Expression::Array(ref value) => self.visit_array_expression(value)
         }
     }
 
@@ -30,6 +31,7 @@ pub trait ExpressionVisitor {
     fn visit_group_expression(&self, value: &GroupExpression);
     fn visit_member_expression(&self, value: &MemberExpression);
     fn visit_object_expression(&self ,value: &ObjectExpression);
+    fn visit_array_expression(&self, value: &ArrayExpression);
 
 }
 
@@ -47,7 +49,8 @@ pub trait ExpressionVisitorMut {
             Expression::Unary(ref value) => self.visit_unary_expression(value),
             Expression::Group(ref value) => self.visit_group_expression(value),
             Expression::Member(ref value) => self.visit_member_expression(value),
-            Expression::Object(ref value) => self.visit_object_expression(value)
+            Expression::Object(ref value) => self.visit_object_expression(value),
+            Expression::Array(ref value) => self.visit_array_expression(value),
         }
     }
 
@@ -63,5 +66,6 @@ pub trait ExpressionVisitorMut {
     fn visit_group_expression(&mut self, value: &GroupExpression);
     fn visit_member_expression(&mut self, value: &MemberExpression);
     fn visit_object_expression(&mut self ,value: &ObjectExpression);
+    fn visit_array_expression(&mut self, value: &ArrayExpression);
 
 }
