@@ -95,6 +95,13 @@ impl Expression {
         }
     }
 
+    pub fn get_number(&self) -> Option<f32> {
+        match self {
+            Expression::Number(val) => Some(*val),
+            _ => None
+        }
+    }
+
     pub fn visit<T: ExpressionVisitorMut>(&self, visitor: &mut T) {
         visitor.visit_expression(self);
     }

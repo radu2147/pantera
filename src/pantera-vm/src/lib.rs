@@ -636,21 +636,38 @@ impl<'a> VM<'a> {
                 }
                 OP_ACCESS => {
                     self.advance();
-                    let Value::Object(obj) = self.execution_stack.pop().unwrap() else {panic!("Not an object");};
-                    let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
-
-                    let val = self.gc.heap_manager.get_property_from_object(obj, &key);
-                    self.execution_stack.push(val);
+                    match self.execution_stack.pop().unwrap() {
+                        Value::Object(obj) => {
+                            let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
+                            let val = self.gc.heap_manager.get_property_from_object(obj, &key);
+                            self.execution_stack.push(val);
+                        }
+                        Value::Array(arr) => {
+                            let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
+                            let val = self.gc.heap_manager.get_property_from_array(arr, key);
+                            self.execution_stack.push(val);
+                        },
+                        _ => panic!("Not an accessible object")
+                    }
                 },
                 OP_SET_PROPERTY => {
                     self.advance();
+                    let Value::String(str_key) = self.execution_stack.pop().unwrap() else { panic!("Not a valid key"); };
+                    match self.execution_stack.pop().unwrap() {
+                        Value::Object(obj) => {
+                            let val_to_set = self.execution_stack.pop().unwrap();
 
-                    let Value::String(prop) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
-                    let Value::Object(obj) = self.execution_stack.pop().unwrap() else {panic!("Not an object");};
+                            self.gc.heap_manager.set_property_for_object(obj, str_key, val_to_set);
+                        }
+                        Value::Array(arr) => {
+                            let val_to_set = self.execution_stack.pop().unwrap();
 
-                    let val_to_set = self.execution_stack.pop().unwrap();
-
-                    self.gc.heap_manager.set_property_for_object(obj, prop, val_to_set);
+                            self.gc.heap_manager.set_property_for_array(arr, str_key, val_to_set);
+                        },
+                        _ => {
+                            panic!("Not an indexable object");
+                        }
+                    }
                 }
                 _ => {
                     todo!();

@@ -178,6 +178,28 @@ impl HeapManager {
         }
     }
 
+    pub fn get_property_from_array(&self, arr_ptr: Ptr, key: Ptr) -> Value {
+        unsafe {
+            let mut arr = Array::from(arr_ptr);
+            let ind = HeapManager::get_string(key).parse::<usize>().unwrap();
+            let elem = arr.get(ind);
+
+            if elem.is_none() {
+                return Value::Null;
+            }
+
+            elem.unwrap()
+        }
+    }
+
+    pub fn set_property_for_array(&self, arr_ptr: Ptr, ind_ptr: Ptr, val: Value) {
+        unsafe {
+            let ind = HeapManager::get_string(ind_ptr).parse::<usize>().unwrap();
+            let mut arr = Array::from(arr_ptr);
+            arr.set(ind, val);
+        }
+    }
+
     pub fn free_array(&mut self, ptr: Ptr) {
         self.free_object(ptr);
     }

@@ -571,6 +571,11 @@ impl Parser{
                             property: member.get_identifier().unwrap().to_string(),
                         }));
                     }
+                } else if matches!(member, Expression::Number(_)) {
+                    rez = Expression::Member(Box::new(MemberExpression {
+                        callee: rez,
+                        property: member.get_number().unwrap().to_string(),
+                    }));
                 } else {
                     return Err(ParseError{ message: "Member access should be an identifier, not other type of expression".to_string(), line: 1 });
                 }
@@ -628,21 +633,35 @@ impl Parser{
         let mut values = vec![];
         while self.peek().typ != TokenType::RightParen {
             let expr = self.parse_primary()?;
-            if matches!(expr, Expression::Identifier(_) | Expression::String(_) | Expression::Number(_))  {
-                if matches!(expr, Expression::String(_) | Expression::Number(_) ) {
-                    keys.push(expr);
-                } else if let Expression::Identifier(ident) = &expr{
-                    keys.push(Expression::String(ident.to_string()))
+            match &expr {
+                Expression::Identifier(ident) => {
+                    keys.push(Expression::String(ident.to_string()));
+
+                    self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
+                    let val = self.parse_expression()?;
+                    values.push(val);
                 }
-                self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
-                let val = self.parse_expression()?;
-                values.push(val)
-            } else {
-                return Err(ParseError {
-                    message: "Object key must be an identifier, string or number".to_string(),
-                    line: 1
-                });
-            }
+                Expression::String(str) => {
+                    keys.push(expr);
+
+                    self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
+                    let val = self.parse_expression()?;
+                    values.push(val);
+                }
+                Expression::Number(num) => {
+                    keys.push(Expression::String(num.to_string()));
+
+                    self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
+                    let val = self.parse_expression()?;
+                    values.push(val);
+                },
+                _ => {
+                    return Err(ParseError {
+                        message: "Object key must be an identifier, string or number".to_string(),
+                        line: 1
+                    });
+                }
+            };
             if self.peek().typ == TokenType::Comma {
                 self.consume(TokenType::Comma, "This error shouldn't be displayed ever")?;
             }
