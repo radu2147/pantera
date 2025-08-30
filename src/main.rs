@@ -8,7 +8,7 @@ use pantera_vm::stack::Stack;
 use pantera_vm::VM;
 
 fn main() {
-    let lexer = Lexer::new("var a = {1: false}; print a's 1;");
+    let lexer = Lexer::new("{ var a = [11, 22, 33, 44, 55, 66, 77, 88]; loop 0..8 { a's (it) = a's (it) * a's (it); print a's (it); } print a; }");
     let parser = Parser::new(lexer.scan_tokens().unwrap());
 
     let mut heap_manager = HeapManager::new();

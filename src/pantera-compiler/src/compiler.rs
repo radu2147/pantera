@@ -103,6 +103,7 @@ impl Compiler<'_> {
         self.code[index + 3] = numb[3];
     }
 
+    #[inline]
     pub fn convert_number_to_bytes(number: f32) -> [u8;4] {
         number.to_le_bytes()
     }
@@ -114,6 +115,7 @@ impl Compiler<'_> {
         0
     }
 
+    #[inline]
     pub fn convert_bool_from_byte(val: u8) -> bool {
         val == 1
     }
@@ -176,7 +178,7 @@ impl ExpressionVisitorMut for Compiler<'_> {
             },
             Expression::Member(mem) => {
                 self.visit_expression(&mem.callee);
-                self.visit_string_expression(&mem.property);
+                self.visit_expression(&mem.property);
                 self.emit_byte(OP_SET_PROPERTY);
             }
             _ => {
@@ -219,7 +221,7 @@ impl ExpressionVisitorMut for Compiler<'_> {
     }
 
     fn visit_member_expression(&mut self, value: &MemberExpression) {
-        self.visit_string_expression(&value.property);
+        self.visit_expression(&value.property);
         self.visit_expression(&value.callee);
         self.emit_byte(OP_ACCESS);
     }

@@ -2,7 +2,7 @@ use crate::token::{Token, TokenType};
 use crate::errors::ParseError;
 
 pub struct Lexer {
-    pub source: String,
+    pub(crate) source: String,
     tokens: Vec<Token>,
     start: i32,
     current: i32,
@@ -319,6 +319,7 @@ impl Lexer {
         }
     }
 
+    #[inline]
     fn is_alpha(chr: &char) -> bool {
         *chr >= 'a' && *chr <= 'z' || *chr >= 'A' && *chr <= 'Z' || *chr == '_'
     }
@@ -335,6 +336,7 @@ impl Lexer {
         )
     }
 
+    #[inline]
     fn is_digit(chr: &char) -> bool {
         *chr >= '0' && *chr <= '9'
     }
@@ -365,6 +367,7 @@ impl Lexer {
             .unwrap()
     }
 
+    #[inline]
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len() as i32
     }

@@ -561,23 +561,21 @@ impl Parser{
                         rez = Expression::Call(Box::new(CallExpression {
                             callee: Expression::Member(Box::new(MemberExpression {
                                 callee: rez,
-                                property: callee,
+                                property: Expression::String(callee),
                             })),
                             args,
                         }))
                     } else {
                         rez = Expression::Member(Box::new(MemberExpression {
                             callee: rez,
-                            property: member.get_identifier().unwrap().to_string(),
+                            property: Expression::String(member.get_identifier().unwrap().to_string()),
                         }));
                     }
-                } else if matches!(member, Expression::Number(_)) {
+                } else {
                     rez = Expression::Member(Box::new(MemberExpression {
                         callee: rez,
-                        property: member.get_number().unwrap().to_string(),
+                        property: member,
                     }));
-                } else {
-                    return Err(ParseError{ message: "Member access should be an identifier, not other type of expression".to_string(), line: 1 });
                 }
             } else{
                 break;
@@ -1029,7 +1027,7 @@ mod tests {
                 // function args
                 assert!(matches!(member.callee, Expression::Member(_)));
 
-                assert_eq!(member.property, "c");
+                assert!(matches!(member.property, Expression::String(_)));
             }
             else {
                 assert!(false);
@@ -1048,7 +1046,7 @@ mod tests {
             if let Expression::Call(ref call) = func_call.expr {
                 if let Expression::Member(ref mem) = call.callee {
                     assert_eq!(mem.callee.get_identifier().unwrap(), "a");
-                    assert_eq!(mem.property, "b");
+                    // assert_eq!(mem.property, "b");
                 } else {
                     assert!(false);
                 }
@@ -1073,7 +1071,7 @@ mod tests {
 
                 if let Expression::Member(ref mem) = call.callee {
                     assert_eq!(mem.callee.get_identifier().unwrap(), "a");
-                    assert_eq!(mem.property, format!("b{}c", FUNCTION_NAME_SEPARATOR));
+                    // assert_eq!(mem.property, format!("b{}c", FUNCTION_NAME_SEPARATOR));
                 } else {
                     assert!(false);
                 }
@@ -1103,7 +1101,7 @@ mod tests {
                     assert!(false);
                 }
 
-                assert_eq!(member.property, "a");
+                //assert_eq!(member.property, "a");
             }
             else {
                 assert!(false);

@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 pub type Bytecode = u8;
 
 macro_rules! generate_bytecode {
@@ -19,6 +21,58 @@ macro_rules! generate_bytecode {
 pub const START_OP_CODE: Bytecode = 0; // exclusive
 
 generate_bytecode! (
+    START_OP_CODE,
+    OP_PRINT,
+    OP_ADD,
+    OP_SUB,
+    OP_DIV,
+    OP_MUL,
+    OP_POW,
+    OP_POP,
+    OP_PUSH,
+    OP_EQ,
+    OP_NE,
+    OP_AND,
+    OP_OR,
+    OP_GE,
+    OP_GR,
+    OP_LE,
+    OP_LS,
+    OP_UNARY_SUB,
+    OP_UNARY_NOT,
+    OP_DECLARE,
+    OP_DECLARE_GLOBAL,
+    OP_GET,
+    OP_GET_GLOBAL,
+    OP_SET,
+    OP_SET_GLOBAL,
+    OP_JUMP_IF_FALSE,
+    OP_JUMP,
+    OP_END_FUNCTION,
+    OP_CALL,
+    OP_RETURN,
+    OP_ALLOCATE,
+    OP_ALLOCATE_ARRAY,
+    OP_ACCESS,
+    OP_SET_PROPERTY
+);
+
+#[cfg(debug_assertions)]
+macro_rules! debug_bytecode {
+    ($( $name:ident ),* $(,)?) => {
+        pub fn as_str(bytecode: &Bytecode) -> &'static str {
+            match *bytecode {
+                $(
+                    $name => stringify!($name),
+                )*
+                _ => panic!("Unreachable")
+            }
+        }
+    };
+}
+
+#[cfg(debug_assertions)]
+debug_bytecode!(
     START_OP_CODE,
     OP_PRINT,
     OP_ADD,

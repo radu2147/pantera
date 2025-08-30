@@ -43,7 +43,7 @@ pub struct ArrayExpression {
 #[derive(Debug, Clone)]
 pub struct MemberExpression {
     pub callee: Expression,
-    pub property: String
+    pub property: Expression
 }
 
 #[derive(Debug, Clone)]

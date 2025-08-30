@@ -643,8 +643,13 @@ impl<'a> VM<'a> {
                             self.execution_stack.push(val);
                         }
                         Value::Array(arr) => {
-                            let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
-                            let val = self.gc.heap_manager.get_property_from_array(arr, key);
+                            let accessor = self.execution_stack.pop().unwrap();
+                            let val = match accessor {
+                                Value::String(key) => self.gc.heap_manager.get_property_from_array(arr, key),
+                                Value::Number(num) => self.gc.heap_manager.get_property_from_array_num(arr, num as usize),
+                                _ => panic!("Not a valid key")
+                            };
+
                             self.execution_stack.push(val);
                         },
                         _ => panic!("Not an accessible object")
@@ -652,17 +657,31 @@ impl<'a> VM<'a> {
                 },
                 OP_SET_PROPERTY => {
                     self.advance();
-                    let Value::String(str_key) = self.execution_stack.pop().unwrap() else { panic!("Not a valid key"); };
+                    let object_key = self.execution_stack.pop().unwrap();
                     match self.execution_stack.pop().unwrap() {
                         Value::Object(obj) => {
+                            let Value::String(str_key) = object_key else { panic!("Not a valid key"); };
                             let val_to_set = self.execution_stack.pop().unwrap();
+                            let cloned_val_to_set = val_to_set.clone();
 
                             self.gc.heap_manager.set_property_for_object(obj, str_key, val_to_set);
+                            self.execution_stack.push(cloned_val_to_set);
                         }
                         Value::Array(arr) => {
                             let val_to_set = self.execution_stack.pop().unwrap();
+                            let cloned_val_to_set = val_to_set.clone();
 
-                            self.gc.heap_manager.set_property_for_array(arr, str_key, val_to_set);
+                            match object_key {
+                                Value::String(str_key) => {
+                                    self.gc.heap_manager.set_property_for_array(arr, str_key, val_to_set);
+                                },
+                                Value::Number(num_key) => {
+                                    self.gc.heap_manager.set_property_for_array_num(arr, num_key as usize, val_to_set);
+                                }
+                                _ => { panic!("Not a valid key"); }
+                            }
+
+                            self.execution_stack.push(cloned_val_to_set);
                         },
                         _ => {
                             panic!("Not an indexable object");
