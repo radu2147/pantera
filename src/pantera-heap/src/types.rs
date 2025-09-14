@@ -9,9 +9,9 @@ pub enum Type {
     Null = 7
 }
 
-impl Into<u8> for Type {
-    fn into(self) -> u8 {
-        match self {
+impl From<Type> for u8 {
+    fn from(val: Type) -> Self {
+        match val {
             Type::Empty => 0u8,
             Type::Number => 1u8,
             Type::Boolean => 2u8,

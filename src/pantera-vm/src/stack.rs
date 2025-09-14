@@ -32,7 +32,7 @@ impl Stack {
         for i in 0..self.top {
             print!("{:?}, ", self.elements.get(i).unwrap())
         }
-        print!("END\n");
+        println!("END");
         std::io::stdout().flush().unwrap();
     }
 

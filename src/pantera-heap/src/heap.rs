@@ -15,6 +15,12 @@ pub struct HeapManager {
     heap_layout: HashMap<Ptr, Layout>
 }
 
+impl Default for HeapManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HeapManager {
 
     pub fn new() ->Self {
@@ -90,24 +96,24 @@ impl HeapManager {
                 let ptr = u64::from_le_bytes(bytes) as Ptr;
                 Value::Object(ptr)
             },
-            Type::Null => Value::Null.into(),
+            Type::Null => Value::Null,
             Type::Number => {
                 let mut arr: [u8; 8] = [0u8; 8];
                 for i in 0..8 {
                     arr[i] = value_bytes[i];
                 }
 
-                Value::Number(f64::from_le_bytes(arr) as f32).into()
+                Value::Number(f64::from_le_bytes(arr) as f32)
             },
             Type::Boolean => {
-                Value::Bool(value_bytes.get(0).is_some_and(|val| *val == 1)).into()
+                Value::Bool(value_bytes.first().is_some_and(|val| *val == 1))
             },
             Type::Function => {
                 let mut arr: [u8; 4] = [0u8; 4];
                 for i in 0..4 {
                     arr[i] = value_bytes[i];
                 }
-                Value::Function(u32::from_le_bytes(arr) as usize, 0).into()
+                Value::Function(u32::from_le_bytes(arr) as usize, 0)
             },
             _ => panic!("")
         }
@@ -115,8 +121,8 @@ impl HeapManager {
 
     pub fn get_property_from_object(&self, obj_ptr: Ptr, name: &Ptr) -> Value {
         unsafe {
-            let mut map = HashTable::from(obj_ptr);
-            let elem = map.get(&name);
+            let map = HashTable::from(obj_ptr);
+            let elem = map.get(name);
 
             if elem.is_none() {
                 return Value::Null;
@@ -172,7 +178,7 @@ impl HeapManager {
 
     pub fn get_array(obj_ptr: Ptr) -> Vec<Value> {
         unsafe {
-            let mut arr = Array::from(obj_ptr);
+            let arr = Array::from(obj_ptr);
 
             arr.get_all()
         }
@@ -180,7 +186,7 @@ impl HeapManager {
 
     pub fn get_property_from_array(&self, arr_ptr: Ptr, key: Ptr) -> Value {
         unsafe {
-            let mut arr = Array::from(arr_ptr);
+            let arr = Array::from(arr_ptr);
             let ind = HeapManager::get_string(key).parse::<usize>().unwrap();
             let elem = arr.get(ind);
 
@@ -194,7 +200,7 @@ impl HeapManager {
 
     pub fn get_property_from_array_num(&self, arr_ptr: Ptr, key: usize) -> Value {
         unsafe {
-            let mut arr = Array::from(arr_ptr);
+            let arr = Array::from(arr_ptr);
             let elem = arr.get(key);
 
             if elem.is_none() {

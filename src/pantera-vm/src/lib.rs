@@ -3,12 +3,11 @@ pub mod gc;
 mod runtime_context;
 
 use std::collections::HashMap;
-use std::rc::Rc;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
 use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE_ARRAY, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
-use pantera_heap::heap::{HeapManager, Ptr};
+use pantera_heap::heap::HeapManager;
 use crate::stack::Stack;
 use pantera_heap::value::Value;
 use crate::gc::GC;
@@ -58,7 +57,7 @@ impl<'a> VM<'a> {
                     self.advance();
                 }
 
-                let ptr = u64::from_le_bytes(bytes) as (*mut u8);
+                let ptr = u64::from_le_bytes(bytes) as *mut u8;
 
                 Value::String(ptr)
             }
@@ -199,7 +198,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(num2 - num1));
                                 }
-                                _ => panic!("Addition of vairables of different types is not supported")
+                                _ => panic!("Addition of variables of different types is not supported")
                             }
                         },
                         _ => {
@@ -562,7 +561,7 @@ impl<'a> VM<'a> {
                 OP_SET => {
                     self.advance();
                     let val = self.execution_stack.pop().unwrap();
-                    let var = self.peek().unwrap().clone();
+                    let var = *self.peek().unwrap();
                     self.advance();
                     self.execution_stack.push(val.clone());
                     self.execution_stack.set(var as i32, val);

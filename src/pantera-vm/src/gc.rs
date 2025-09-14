@@ -49,7 +49,7 @@ impl<'a> GC<'a> {
             }
             Value::Object(ptr) => {
                 let object = HeapManager::get_object(*ptr);
-                object.values().into_iter().for_each(|val| self.mark_value(&val, objects));
+                object.values().for_each(|val| self.mark_value(val, objects));
                 objects.insert(*ptr, true);
             }
             _ => {}

@@ -32,6 +32,7 @@ pub unsafe fn read_bytes_until_null(entry: Ptr) -> Vec<u8> {
     bytes
 }
 
+#[allow(dead_code)]
 pub unsafe fn read_bool(entry: Ptr) -> bool {
     read_byte(entry) == 1
 }
@@ -89,8 +90,8 @@ pub unsafe fn write_pointer(dest: Ptr, ptr: Ptr) {
 // < Writers
 
 mod test {
-    use std::alloc::{alloc, Layout};
-    use crate::bytes::{read_bytes, read_number, read_pointer, read_string, write_byte, write_bytes, write_number, write_pointer, write_string};
+    
+    
 
     #[test]
     pub fn test_writer() {

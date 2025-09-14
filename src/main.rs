@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::heap::HeapManager;
 use pantera_parser::lexer::Lexer;
@@ -6,6 +5,7 @@ use pantera_parser::parser::Parser;
 use pantera_vm::gc::GC;
 use pantera_vm::stack::Stack;
 use pantera_vm::VM;
+use std::collections::HashMap;
 
 fn main() {
     let lexer = Lexer::new("print {num: 22};");

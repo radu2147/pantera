@@ -25,6 +25,7 @@ pub unsafe fn get_type(entry: Ptr) -> Type {
     Type::from(read_byte(entry.add(8)))
 }
 
+#[allow(dead_code)]
 pub unsafe fn set_type(entry: Ptr, typ: Type) {
     write_byte(entry.add(8), typ.into());
 }
@@ -157,7 +158,7 @@ impl HashTable {
     }
 
     pub unsafe fn get(&self, key: &Ptr) -> Option<Value> {
-        let entry = self.find_entry(&key);
+        let entry = self.find_entry(key);
         if get_key(entry).is_null() {
             return None;
         }
@@ -176,6 +177,7 @@ impl HashTable {
         set_value(entry, val);
     }
 
+    #[allow(dead_code)]
     pub unsafe fn delete(&mut self, key: Ptr) {
         if self.count == 0 {
             return;
@@ -193,6 +195,7 @@ impl HashTable {
         write_number(self.entries.add(1), count as f64);
     }
 
+    #[allow(dead_code)]
     pub fn get_count(&self) -> usize {
         self.count
     }
@@ -200,13 +203,14 @@ impl HashTable {
 
 mod tests {
     use std::alloc::{alloc, Layout};
-    use std::rc::Rc;
+    
     use crate::bytes::{write_byte, write_string};
-    use crate::hash_table::HashTable;
+    
     use crate::heap::Ptr;
     use crate::types::Type;
-    use crate::value::Value;
 
+
+    #[allow(dead_code)]
     unsafe fn alloc_key(str: String) -> Ptr {
         let layout = Layout::array::<u8>(str.len()).unwrap();
         let ptr = alloc(layout);

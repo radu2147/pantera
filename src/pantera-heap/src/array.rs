@@ -108,7 +108,7 @@ impl Array {
     }
 
     pub unsafe fn get(&self, key: usize) -> Option<Value> {
-        if key >= self.count || key < 0 {
+        if key >= self.count {
             return None;
         }
 
@@ -116,7 +116,7 @@ impl Array {
     }
 
     pub unsafe fn set(&mut self, key: usize, val: Value) {
-        if key > self.count || key < 0 {
+        if key > self.count {
             panic!("Index {key} out of range");
         }
 
@@ -128,6 +128,7 @@ impl Array {
         write_number(self.entries.add(1), count as f64);
     }
 
+    #[allow(dead_code)]
     pub fn get_count(&self) -> usize {
         self.count
     }

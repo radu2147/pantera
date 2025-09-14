@@ -8,6 +8,12 @@ pub struct Env {
     pub frame_beginning: bool
 }
 
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Env {
     pub fn new_local(env: Box<Env>) -> Self {
         Self {

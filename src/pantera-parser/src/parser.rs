@@ -8,8 +8,6 @@ use crate::errors::ParseError;
 
 pub struct Parser {
     pub source: Peekable<IntoIter<Token>>,
-    start: i32,
-    current: i32
 }
 
 const FUNCTION_NAME_SEPARATOR: &str = "_";
@@ -112,7 +110,7 @@ impl Parser{
         while self.peek().typ != TokenType::RightBrace {
             self.consume(TokenType::Comma, "Expected comma to separate function parameter")?;
             if let TokenType::Identifier(_ident) = &self.peek().typ {
-                let TokenType::Identifier(ident) = self.advance().unwrap().typ else { unreachable!(); };;
+                let TokenType::Identifier(ident) = self.advance().unwrap().typ else { unreachable!(); };
                 ids.push(Identifier{name: ident, id: 1.0});
             } else {
                 return Err(ParseError{
@@ -595,13 +593,11 @@ impl Parser{
             if self.peek().typ == TokenType::LeftBrace {
                 self.advance();
                 self.parse_args()?.into_iter().for_each(|arg| func_args.push(arg));
+            } else if let TokenType::Identifier(_val) = &self.peek().typ {
+                let TokenType::Identifier(val) = self.advance().unwrap().typ else { unreachable!(); };
+                id_parts.push(val);
             } else {
-                if let TokenType::Identifier(_val) = &self.peek().typ {
-                    let TokenType::Identifier(val) = self.advance().unwrap().typ else { unreachable!(); };
-                    id_parts.push(val);
-                } else {
-                    break;
-                }
+                break;
             }
         }
 
@@ -636,7 +632,7 @@ impl Parser{
                     let val = self.parse_expression()?;
                     values.push(val);
                 }
-                Expression::String(str) => {
+                Expression::String(_) => {
                     keys.push(expr);
 
                     self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
@@ -694,7 +690,7 @@ impl Parser{
             TokenType::False => Ok(Expression::Bool(false)),
             TokenType::Nil => Ok(Expression::Nil),
             TokenType::String(str) => Ok(Expression::String(str.to_string())),
-            TokenType::Number(num) => Ok(Expression::Number(num.clone())),
+            TokenType::Number(num) => Ok(Expression::Number(*num)),
             TokenType::Identifier(ident) => Ok(Expression::Identifier(ident.to_string())),
             TokenType::LeftParen => self.parse_object(),
             TokenType::LeftSquareBracket => self.parse_array(),
@@ -735,8 +731,6 @@ impl Parser{
     pub fn new(source: Vec<Token>) -> Self {
         Self {
             source: source.into_iter().peekable(),
-            start: 0,
-            current: 0
         }
     }
 }

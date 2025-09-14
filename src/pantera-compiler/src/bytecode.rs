@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Formatter};
 
 pub type Bytecode = u8;
 

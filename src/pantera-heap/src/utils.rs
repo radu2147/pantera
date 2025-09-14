@@ -1,7 +1,7 @@
 pub fn vec_to_array<T: Clone + Default + Copy>(vector: &Vec<T>) -> [T;8] {
     let mut array = [T::default();8];
     for i in 0..8 {
-        let el = (*vector.get(i).unwrap()).clone();
+        let el = *vector.get(i).unwrap();
         array[i] = el;
     }
 
@@ -9,7 +9,7 @@ pub fn vec_to_array<T: Clone + Default + Copy>(vector: &Vec<T>) -> [T;8] {
 }
 
 mod tests {
-    use crate::utils::vec_to_array;
+    
 
     #[test]
     fn test_vec_to_array() {
