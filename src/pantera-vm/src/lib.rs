@@ -3,6 +3,7 @@ pub mod gc;
 mod runtime_context;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
@@ -69,11 +70,11 @@ impl<'a> VM<'a> {
 
     fn pow_numbers(base: f32, pow: f32) -> f32 {
         if pow.fract() == 0.0 {
-            let pw = pow as u32;
+            let pw = pow as i32;
             if pw < 0 {
-                return 1.0 / Self::power(base, pw);
+                return 1.0 / Self::power(base, (-pw) as u32);
             }
-            Self::power(base, pw)
+            Self::power(base, pw as u32)
         } else {
             panic!("Pow being a float number is not supported")
         }
@@ -294,7 +295,7 @@ impl<'a> VM<'a> {
                         Value::String(ptr) => {
                             match val2 {
                                 Value::String(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(HeapManager::compare_strings(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_strings(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(false))
@@ -314,7 +315,7 @@ impl<'a> VM<'a> {
                         Value::Object(ptr) => {
                             match val2 {
                                 Value::Object(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(false))
@@ -324,7 +325,7 @@ impl<'a> VM<'a> {
                         Value::Array(ptr) => {
                             match val2 {
                                 Value::Array(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(HeapManager::compare_objects(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(false))
@@ -377,7 +378,7 @@ impl<'a> VM<'a> {
                         Value::String(ptr) => {
                             match val2 {
                                 Value::String(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_strings(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_strings(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(true))
@@ -387,7 +388,7 @@ impl<'a> VM<'a> {
                         Value::Object(ptr) => {
                             match val2 {
                                 Value::Object(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(true))
@@ -397,7 +398,7 @@ impl<'a> VM<'a> {
                         Value::Array(ptr) => {
                             match val2 {
                                 Value::Array(ptr2) => {
-                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr.clone(), ptr2.clone())))
+                                    self.execution_stack.push(Value::Bool(!HeapManager::compare_objects(ptr, ptr2)))
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(false))
@@ -611,9 +612,10 @@ impl<'a> VM<'a> {
                     for _i in 0..(len as usize) {
                         values.push(self.execution_stack.pop().unwrap());
                     }
-                    for i in 0..(len as usize) {
+                    let mut values_iter = values.into_iter();
+                    for _i in 0..(len as usize) {
                         let Value::String(str_ptr) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
-                        obj.insert(str_ptr, values[i].clone());
+                        obj.insert(str_ptr, values_iter.next().unwrap());
                     }
 
                     let obj_ptr = self.gc.heap_manager.allocate_object(obj).unwrap();

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
-use pantera_ast::expression_visitor::ExpressionVisitorMut;
+use pantera_ast::expression_visitor::{IntoExpressionVisitorMut};
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
-use pantera_ast::statement_visitor::StatementVisitorMut;
+use pantera_ast::statement_visitor::{IntoStatementVisitorMut};
 use pantera_parser::parser::Parser;
 use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY, OP_ALLOCATE_ARRAY};
 use crate::env::Env;
@@ -41,7 +41,7 @@ impl<'a> Compiler<'a> {
     }
     pub fn compile(mut self, mut parser: Parser) -> Vec<Bytecode> {
         let program = parser.parse_program().unwrap();
-        program.into_iter().for_each(|p| p.visit(&mut self));
+        program.into_iter().for_each(|p| p.visit_g(&mut self));
 
         self.code
     }
@@ -125,28 +125,28 @@ impl Compiler<'_> {
     }
 }
 
-impl ExpressionVisitorMut for Compiler<'_> {
+impl IntoExpressionVisitorMut for Compiler<'_> {
     fn visit_nil_expression(&mut self) {
         self.emit_null();
     }
 
-    fn visit_boolean_expression(&mut self, value: &bool) {
-        self.emit_boolean(*value);
+    fn visit_boolean_expression(&mut self, value: bool) {
+        self.emit_boolean(value);
     }
 
-    fn visit_number_expression(&mut self, value: &f32) {
-        self.emit_number(*value);
+    fn visit_number_expression(&mut self, value: f32) {
+        self.emit_number(value);
     }
 
-    fn visit_string_expression(&mut self, value: &String) {
+    fn visit_string_expression(&mut self, value: String) {
         self.emit_bytes(OP_PUSH, Type::String as Bytecode);
 
-        let ptr = self.heap_manager.allocate_compiled_string(value.clone()).unwrap();
+        let ptr = self.heap_manager.allocate_compiled_string(value).unwrap();
         (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
-    fn visit_identifier_expression(&mut self, value: &String) {
-        let var = self.env.get_variable(value);
+    fn visit_identifier_expression(&mut self, value: String) {
+        let var = self.env.get_variable(&value);
         if var.is_some() {
             let value = *var.unwrap();
             self.emit_byte(OP_PUSH);
@@ -154,31 +154,31 @@ impl ExpressionVisitorMut for Compiler<'_> {
         } else {
             self.emit_byte(OP_PUSH);
             self.emit_byte(OP_GET_GLOBAL);
-            self.emit_hash(value.clone());
+            self.emit_hash(value);
         }
     }
 
-    fn visit_call_expression(&mut self, value: &CallExpression) {
-        value.args.iter().for_each(|arg| self.visit_expression(arg));
-        self.visit_expression(&value.callee);
+    fn visit_call_expression(&mut self, value: CallExpression) {
+        value.args.into_iter().for_each(|arg| self.visit_expression(arg));
+        self.visit_expression(value.callee);
         self.emit_byte(OP_CALL);
     }
 
-    fn visit_assignment_expression(&mut self, value: &AssignmentExpression) {
-        self.visit_expression(&value.value);
-        match &value.assignee {
+    fn visit_assignment_expression(&mut self, value: AssignmentExpression) {
+        self.visit_expression(value.value);
+        match value.assignee {
             Expression::Identifier(ident) => {
-                let var = self.env.get_variable(ident);
+                let var = self.env.get_variable(&ident);
                 if var.is_some() {
                     self.emit_bytes(OP_SET, *var.unwrap());
                 } else {
                     self.emit_byte(OP_SET_GLOBAL);
-                    self.emit_hash(ident.clone());
+                    self.emit_hash(ident);
                 }
             },
             Expression::Member(mem) => {
-                self.visit_expression(&mem.callee);
-                self.visit_expression(&mem.property);
+                self.visit_expression(mem.callee);
+                self.visit_expression(mem.property);
                 self.emit_byte(OP_SET_PROPERTY);
             }
             _ => {
@@ -187,10 +187,10 @@ impl ExpressionVisitorMut for Compiler<'_> {
         }
     }
 
-    fn visit_binary_expression(&mut self, value: &BinaryExpression) {
-        self.visit_expression(&value.left);
-        self.visit_expression(&value.right);
-        match &value.operator {
+    fn visit_binary_expression(&mut self, value: BinaryExpression) {
+        self.visit_expression(value.left);
+        self.visit_expression(value.right);
+        match value.operator {
             Operator::Plus => self.emit_byte(OP_ADD),
             Operator::Minus => self.emit_byte(OP_SUB),
             Operator::Div => self.emit_byte(OP_DIV),
@@ -207,52 +207,54 @@ impl ExpressionVisitorMut for Compiler<'_> {
         }
     }
 
-    fn visit_unary_expression(&mut self, value: &UnaryExpression) {
-        self.visit_expression(&value.expr);
-        match &value.operator {
+    fn visit_unary_expression(&mut self, value: UnaryExpression) {
+        self.visit_expression(value.expr);
+        match value.operator {
             Operator::Minus => self.emit_byte(OP_UNARY_SUB),
             Operator::NE => self.emit_byte(OP_UNARY_NOT),
             _ => panic!("Other unary operator not supported")
         }
     }
 
-    fn visit_group_expression(&mut self, value: &GroupExpression) {
-        self.visit_expression(&value.expr);
+    fn visit_group_expression(&mut self, value: GroupExpression) {
+        self.visit_expression(value.expr);
     }
 
-    fn visit_member_expression(&mut self, value: &MemberExpression) {
-        self.visit_expression(&value.property);
-        self.visit_expression(&value.callee);
+    fn visit_member_expression(&mut self, value: MemberExpression) {
+        self.visit_expression(value.property);
+        self.visit_expression(value.callee);
         self.emit_byte(OP_ACCESS);
     }
 
-    fn visit_object_expression(&mut self, value: &ObjectExpression) {
-        value.properties.iter().for_each(|prop| self.visit_expression(prop));
-        value.values.iter().for_each(|val| self.visit_expression(val));
-        self.emit_number(value.properties.len() as f32);
+    fn visit_object_expression(&mut self, value: ObjectExpression) {
+        let obj_len = value.properties.len() as f32;
+        value.properties.into_iter().for_each(|prop| self.visit_expression(prop));
+        value.values.into_iter().for_each(|val| self.visit_expression(val));
+        self.emit_number(obj_len);
         self.emit_byte(OP_ALLOCATE);
     }
 
-    fn visit_array_expression(&mut self, value: &ArrayExpression) {
-        value.values.iter().for_each(|val| self.visit_expression(val));
-        self.emit_number(value.values.len() as f32);
+    fn visit_array_expression(&mut self, value: ArrayExpression) {
+        let arr_len =value.values.len() as f32;
+        value.values.into_iter().for_each(|val| self.visit_expression(val));
+        self.emit_number(arr_len);
         self.emit_byte(OP_ALLOCATE_ARRAY);
     }
 }
 
-impl StatementVisitorMut for Compiler<'_> {
-    fn visit_function_body(&mut self, stmt: &BlockStatement) {
+impl IntoStatementVisitorMut for Compiler<'_> {
+    fn visit_function_body(&mut self, stmt: BlockStatement) {
         self.env = Box::new(Env::new_frame(self.env.clone()));
         self.env.set_variable("__offset__".to_string());
         let Context::Function(func_name) = &self.context else {panic!("Something went wronng when compiling")};
         self.active_func_args.get(func_name).unwrap().iter().for_each(|param| self.env.set_variable(param.clone()));
 
-        stmt.statements.iter().for_each(|stmt| self.visit_local_statement(stmt));
+        stmt.statements.into_iter().for_each(|stmt| self.visit_local_statement(stmt));
 
         self.env = self.env.enclosing.clone().unwrap();
     }
 
-    fn visit_function_declaration(&mut self, func_dec: &FunctionDeclarationStatement) {
+    fn visit_function_declaration(&mut self, func_dec: FunctionDeclarationStatement) {
         let old_context = self.context.clone();
         self.context = Context::Function(func_dec.name.name.clone());
         self.emit_byte(OP_PUSH);
@@ -264,14 +266,14 @@ impl StatementVisitorMut for Compiler<'_> {
         self.emit_byte(0);
 
         self.emit_byte(func_dec.params.len() as Bytecode);
-        self.active_func_args.insert(func_dec.name.name.clone(), func_dec.params.iter().map(|param| param.name.clone()).collect::<Vec<String>>());
+        self.active_func_args.insert(func_dec.name.name.clone(), func_dec.params.into_iter().map(|param| param.name).collect::<Vec<String>>());
 
         self.emit_byte(OP_DECLARE_GLOBAL);
-        self.emit_hash(func_dec.name.name.clone());
+        self.emit_hash(func_dec.name.name);
 
         let loc = self.emit_jump();
         self.back_patch(addr);
-        self.visit_local_statement(&func_dec.body);
+        self.visit_local_statement(func_dec.body);
         self.emit_byte(OP_END_FUNCTION);
 
         self.back_patch(loc);
@@ -294,18 +296,18 @@ impl StatementVisitorMut for Compiler<'_> {
         self.emit_byte(0);
     }
 
-    fn visit_print_statement(&mut self, stmt: &PrintStatement) {
-        self.visit_expression(&stmt.expr);
+    fn visit_print_statement(&mut self, stmt: PrintStatement) {
+        self.visit_expression(stmt.expr);
         self.emit_byte(OP_PRINT);
     }
 
-    fn visit_block_statement(&mut self, stmt: &BlockStatement) {
+    fn visit_block_statement(&mut self, stmt: BlockStatement) {
         let old_context = self.context.clone();
         self.context = Context::Block;
 
         self.env = Box::new(Env::new_local(self.env.clone()));
 
-        stmt.statements.iter().for_each(|stmt| self.visit_local_statement(stmt));
+        stmt.statements.into_iter().for_each(|stmt| self.visit_local_statement(stmt));
 
         for _ in 0..self.env.variables.len() {
             self.emit_byte(OP_POP);
@@ -314,22 +316,21 @@ impl StatementVisitorMut for Compiler<'_> {
         self.context = old_context;
     }
 
-    fn visit_expression_statement(&mut self, stmt: &ExpressionStatement) {
-        self.visit_expression(&stmt.expr);
+    fn visit_expression_statement(&mut self, stmt: ExpressionStatement) {
+        self.visit_expression(stmt.expr);
         self.emit_byte(OP_POP);
     }
 
-    fn visit_return_statement(&mut self, stmt: &ReturnStatement) {
-        if stmt.value.is_some() {
-            let value = stmt.value.clone().unwrap();
-            self.visit_expression(&value);
+    fn visit_return_statement(&mut self, stmt: ReturnStatement) {
+        if let Some(value) = stmt.value {
+            self.visit_expression(value);
             self.emit_byte(OP_RETURN);
         }
         self.emit_byte(OP_END_FUNCTION);
     }
 
-    fn visit_if_statement(&mut self, stmt: &IfStatement) {
-        self.visit_expression(&stmt.condition);
+    fn visit_if_statement(&mut self, stmt: IfStatement) {
+        self.visit_expression(stmt.condition);
         self.emit_byte(OP_JUMP_IF_FALSE);
 
         let loc = self.code.len();
@@ -339,8 +340,8 @@ impl StatementVisitorMut for Compiler<'_> {
         self.emit_byte(0);
         self.emit_byte(0);
 
-        self.visit_local_statement(&stmt.body);
-        if let Some(alt) = &stmt.alternative {
+        self.visit_local_statement(stmt.body);
+        if let Some(alt) = stmt.alternative {
             let loc_else = self.emit_jump();
             self.back_patch(loc);
 
@@ -352,11 +353,11 @@ impl StatementVisitorMut for Compiler<'_> {
         }
     }
 
-    fn visit_loop_statement(&mut self, stmt: &LoopStatement) {
+    fn visit_loop_statement(&mut self, stmt: LoopStatement) {
         self.break_stmt.push(vec![]);
 
         let loc = self.code.len();
-        self.visit_local_statement(&stmt.body);
+        self.visit_local_statement(stmt.body);
         self.emit_byte(OP_JUMP);
         let beg = Self::convert_number_to_bytes(loc as f32);
         for index in 0..4 {
@@ -367,9 +368,9 @@ impl StatementVisitorMut for Compiler<'_> {
         cont.into_iter().for_each(|break_location| self.back_patch(break_location));
     }
 
-    fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement) {
+    fn visit_declaration_statement(&mut self, stmt: DeclarationStatement) {
         if matches!(self.context, Context::Global) {
-            if let Some(ref val) = stmt.value {
+            if let Some(val) = stmt.value {
                 self.visit_expression(val);
             } else {
                 self.emit_null();
@@ -377,17 +378,17 @@ impl StatementVisitorMut for Compiler<'_> {
             self.emit_byte(OP_DECLARE_GLOBAL);
             self.emit_hash(stmt.variable.clone());
         }
-        else if let Some(ref val) = stmt.value {
+        else if let Some(val) = stmt.value {
             self.visit_expression(val);
             self.env.set_variable(stmt.variable.clone());
         } else {
-            self.env.set_variable(stmt.variable.clone());
+            self.env.set_variable(stmt.variable);
             self.emit_byte(OP_DECLARE);
         }
     }
 
-    fn visit_multi_declaration(&mut self, stmt: &MultiDeclarationStatement) {
-        for stmt in &stmt.declarations {
+    fn visit_multi_declaration(&mut self, stmt: MultiDeclarationStatement) {
+        for stmt in stmt.declarations {
             self.visit_declaration_statement(stmt);
         }
     }

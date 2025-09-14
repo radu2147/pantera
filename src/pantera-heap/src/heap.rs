@@ -55,7 +55,7 @@ impl HeapManager {
 
     pub fn get_object(obj_ptr: Ptr) -> HashMap<Ptr, Box<Value>> {
         unsafe {
-            let mut map = HashTable::from(obj_ptr);
+            let map = HashTable::from(obj_ptr);
             let elems = map.get_all();
 
             let mut rez = HashMap::new();

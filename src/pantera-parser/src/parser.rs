@@ -1,11 +1,13 @@
+use std::iter::Peekable;
 use std::string::ToString;
+use std::vec::IntoIter;
 use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, Identifier, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use crate::token::{Token, TokenType};
 use pantera_ast::statement::{BlockStatement, DeclarationKind, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, GlobalStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, Range, ReturnStatement, Statement};
 use crate::errors::ParseError;
 
 pub struct Parser {
-    pub source: Vec<Token>,
+    pub source: Peekable<IntoIter<Token>>,
     start: i32,
     current: i32
 }
@@ -43,12 +45,7 @@ impl Parser{
                 self.parse_return_stmt()
             }
             TokenType::LeftParen => {
-                // should change once spreading is allowed
-                if self.peek_nth(2).typ == TokenType::Colon {
-                    self.parse_expression_statement()
-                } else {
-                    self.parse_block_stmt(false)
-                }
+                self.parse_block_stmt(false)
             },
             TokenType::If => {
                 self.parse_if_stmt()
@@ -77,9 +74,9 @@ impl Parser{
         }
         while self.peek().typ != TokenType::LeftParen {
             let token = self.peek();
-            if let TokenType::Identifier(ident) = &token.typ {
-                id_parts.push(ident.clone());
-                self.advance();
+            if let TokenType::Identifier(_ident) = &token.typ {
+                let TokenType::Identifier(ident) = self.advance().unwrap().typ else { unreachable!(); };
+                id_parts.push(ident);
                 if self.peek().typ == TokenType::LeftBrace {
                     let local_params = self.parse_function_params()?;
                     local_params.into_iter().for_each(|param| params.push(param));
@@ -103,9 +100,9 @@ impl Parser{
     pub fn parse_function_params(&mut self) -> ParserResult<Vec<Identifier>> {
         self.advance();
         let mut ids = vec![];
-        if let TokenType::Identifier(ident) = &self.peek().typ {
-            ids.push(Identifier{name: ident.clone(), id: 1.0});
-            self.advance();
+        if let TokenType::Identifier(_ident) = &self.peek().typ {
+            let TokenType::Identifier(ident) = self.advance().unwrap().typ else { unreachable!(); };
+            ids.push(Identifier{name: ident, id: 1.0});
         } else {
             return Err(ParseError{
                 message: "Expected formal function parameter definition".to_string(),
@@ -114,9 +111,9 @@ impl Parser{
         }
         while self.peek().typ != TokenType::RightBrace {
             self.consume(TokenType::Comma, "Expected comma to separate function parameter")?;
-            if let TokenType::Identifier(ident) = &self.peek().typ {
-                ids.push(Identifier{name: ident.clone(), id: 1.0});
-                self.advance();
+            if let TokenType::Identifier(_ident) = &self.peek().typ {
+                let TokenType::Identifier(ident) = self.advance().unwrap().typ else { unreachable!(); };;
+                ids.push(Identifier{name: ident, id: 1.0});
             } else {
                 return Err(ParseError{
                     message: "Expected formal function parameter definition".to_string(),
@@ -137,7 +134,7 @@ impl Parser{
             };
         let mut declarations = vec![];
         loop {
-            let TokenType::Identifier(assignee) = self.advance().unwrap().clone().typ else {panic!("Assignee has to be a variable")};
+            let TokenType::Identifier(assignee) = self.advance().unwrap().typ else {panic!("Assignee has to be a variable")};
             if self.peek().typ == TokenType::Equal {
                 self.advance();
                 let value = self.parse_expression()?;
@@ -186,8 +183,8 @@ impl Parser{
             if self.peek().typ == TokenType::As {
                 self.advance();
                 let identifier = self.parse_expression()?;
-                if let Some(id) = identifier.get_identifier() {
-                    alias = id.clone();
+                if let Expression::Identifier(id) = identifier {
+                    alias = id;
                 } else {
                     return Err(ParseError {
                         line: 1,
@@ -599,9 +596,9 @@ impl Parser{
                 self.advance();
                 self.parse_args()?.into_iter().for_each(|arg| func_args.push(arg));
             } else {
-                if let TokenType::Identifier(val) = &self.peek().typ {
-                    id_parts.push(val.clone());
-                    self.advance();
+                if let TokenType::Identifier(_val) = &self.peek().typ {
+                    let TokenType::Identifier(val) = self.advance().unwrap().typ else { unreachable!(); };
+                    id_parts.push(val);
                 } else {
                     break;
                 }
@@ -713,12 +710,11 @@ impl Parser{
         }
     }
 
-    pub fn advance(&mut self) -> Option<&Token> {
-        self.current += 1;
-        self.source.get((self.current - 1) as usize)
+    pub fn advance(&mut self) -> Option<Token> {
+        self.source.next()
     }
 
-    pub fn consume(&mut self, token_type: TokenType, error: &str) -> ParserResult<&Token> {
+    pub fn consume(&mut self, token_type: TokenType, error: &str) -> ParserResult<Token> {
         if self.peek().typ == token_type {
             Ok(self.advance().unwrap())
         } else {
@@ -729,20 +725,16 @@ impl Parser{
         }
     }
 
-    pub fn peek(&self) -> &Token {
-        self.source.get(self.current as usize).unwrap()
+    pub fn peek(&mut self) -> &Token {
+        self.source.peek().unwrap()
     }
 
-    pub fn peek_nth(&self, index: i32) -> &Token {
-        self.source.get((self.current + index) as usize).unwrap()
-    }
-
-    pub fn at_end(&self) -> bool {
+    pub fn at_end(&mut self) -> bool {
         self.peek().typ == TokenType::Eof
     }
     pub fn new(source: Vec<Token>) -> Self {
         Self {
-            source,
+            source: source.into_iter().peekable(),
             start: 0,
             current: 0
         }

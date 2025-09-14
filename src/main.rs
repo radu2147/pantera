@@ -8,12 +8,12 @@ use pantera_vm::stack::Stack;
 use pantera_vm::VM;
 
 fn main() {
-    let lexer = Lexer::new("{ var a = [11, 22, 33, 44, 55, 66, 77, 88]; loop 0..8 { a's (it) = a's (it) * a's (it); print a's (it); } print a; }");
+    let lexer = Lexer::new("print {num: 22};");
     let parser = Parser::new(lexer.scan_tokens().unwrap());
 
     let mut heap_manager = HeapManager::new();
 
-    let mut compiler = Compiler::new(&mut heap_manager);
+    let compiler = Compiler::new(&mut heap_manager);
     let code = compiler.compile(parser);
     let mut execution_stack = Stack::init();
     let mut globals = HashMap::new();

@@ -1,5 +1,5 @@
 use crate::expression::{Expression, Identifier};
-use crate::statement_visitor::StatementVisitorMut;
+use crate::statement_visitor::{IntoStatementVisitorMut, StatementVisitorMut};
 
 #[derive(Debug)]
 pub enum GlobalStatement {
@@ -87,6 +87,10 @@ pub struct FunctionDeclarationStatement {
 
 impl GlobalStatement {
     pub fn visit<T: StatementVisitorMut>(&self, visitor: &mut T) {
+        visitor.visit_statement(self);
+    }
+
+    pub fn visit_g<T: IntoStatementVisitorMut>(self, visitor: &mut T) {
         visitor.visit_statement(self);
     }
 }

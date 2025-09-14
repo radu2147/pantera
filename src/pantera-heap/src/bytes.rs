@@ -152,7 +152,7 @@ mod test {
             let layout = Layout::array::<u8>(8).unwrap();
             let obj_ptr = alloc(layout);
 
-            write_pointer(obj_ptr, num_ptr.clone());
+            write_pointer(obj_ptr, num_ptr);
             let read_ptr = read_pointer(obj_ptr);
 
             assert_eq!(read_ptr, num_ptr);

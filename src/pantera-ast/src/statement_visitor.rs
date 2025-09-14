@@ -35,6 +35,42 @@ pub trait StatementVisitor {
     fn visit_declaration_statement(&self, stmt: &DeclarationStatement);
 }
 
+pub trait IntoStatementVisitorMut {
+    fn visit_statement(&mut self, stmt: GlobalStatement) {
+        match stmt {
+            GlobalStatement::Statement(value) => self.visit_local_statement(value),
+            GlobalStatement::FunctionDeclaration(value) => self.visit_function_declaration(value)
+        }
+    }
+
+    fn visit_local_statement(&mut self, stmt: Statement) {
+        match stmt {
+            Statement::Break => self.visit_break_statement(),
+            Statement::Print(value) => self.visit_print_statement(*value),
+            Statement::Block(value) => self.visit_block_statement(*value),
+            Statement::Expression(value) => self.visit_expression_statement(*value),
+            Statement::Return(value) => self.visit_return_statement(*value),
+            Statement::If(value) => self.visit_if_statement(*value),
+            Statement::Declaration(value) => self.visit_declaration_statement(value),
+            Statement::MultiDeclaration(value ) => self.visit_multi_declaration(value),
+            Statement::Loop(value) => self.visit_loop_statement(*value),
+            Statement::FunctionBody(value) => self.visit_function_body(*value)
+        }
+    }
+
+    fn visit_function_body(&mut self, stmt: BlockStatement);
+    fn visit_function_declaration(&mut self, func_dec: FunctionDeclarationStatement);
+    fn visit_break_statement(&mut self);
+    fn visit_print_statement(&mut self, stmt: PrintStatement);
+    fn visit_block_statement(&mut self, stmt: BlockStatement);
+    fn visit_expression_statement(&mut self, stmt: ExpressionStatement);
+    fn visit_return_statement(&mut self, stmt: ReturnStatement);
+    fn visit_if_statement(&mut self, stmt: IfStatement);
+    fn visit_loop_statement(&mut self, stmt: LoopStatement);
+    fn visit_declaration_statement(&mut self, stmt: DeclarationStatement);
+    fn visit_multi_declaration(&mut self, stmt: MultiDeclarationStatement);
+}
+
 pub trait StatementVisitorMut {
     fn visit_statement(&mut self, stmt: &GlobalStatement) {
         match stmt {

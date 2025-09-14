@@ -126,7 +126,7 @@ impl HashTable {
                             tomb
                         }
                     } else {
-                        tomb = entry.clone();
+                        tomb = entry;
                     }
 
                 } else if get_key(entry) == *key {
@@ -200,6 +200,7 @@ impl HashTable {
 
 mod tests {
     use std::alloc::{alloc, Layout};
+    use std::rc::Rc;
     use crate::bytes::{write_byte, write_string};
     use crate::hash_table::HashTable;
     use crate::heap::Ptr;
@@ -220,8 +221,8 @@ mod tests {
     pub fn test_set() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = alloc_key("Test".to_string());
-            table.set(key1.clone(), Value::Number(12f32));
+            let key1 = Rc::new(alloc_key("Test".to_string()));
+            table.set(*key1, Value::Number(12f32));
 
             let val = table.get(&key1).unwrap();
             assert!(matches!(val, Value::Number(12f32)));
@@ -232,11 +233,11 @@ mod tests {
     pub fn test_set_collisions() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = alloc_key("Test1".to_string());
-            table.set(key1.clone(), Value::Number(12f32));
+            let key1 = Rc::new(alloc_key("Test1".to_string()));
+            table.set(*key1, Value::Number(12f32));
 
-            let key2 = alloc_key("Test2".to_string());
-            table.set(key2.clone(), Value::Number(13f32));
+            let key2 = Rc::new(alloc_key("Test2".to_string()));
+            table.set(*key2, Value::Number(13f32));
 
             let val = table.get(&key1).unwrap();
             assert!(matches!(val, Value::Number(12f32)));
@@ -250,13 +251,13 @@ mod tests {
     pub fn test_delete() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = 12usize as Ptr;
-            table.set(key1.clone(), Value::Number(12f32));
+            let key1 = Rc::new(12usize as Ptr);
+            table.set(*key1, Value::Number(12f32));
 
-            let key2 = 62usize as Ptr;
-            table.set(key2.clone(), Value::Number(13f32));
+            let key2 = Rc::new(62usize as Ptr);
+            table.set(*key2, Value::Number(13f32));
 
-            table.delete(key1);
+            table.delete(*key1);
             let val = table.get(&key1);
             assert!(matches!(val, None));
         }
@@ -266,13 +267,13 @@ mod tests {
     pub fn test_delete_and_get() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = 12usize as Ptr;
-            table.set(key1.clone(), Value::Number(12f32));
+            let key1 = Rc::new(12usize as Ptr);
+            table.set(*key1, Value::Number(12f32));
 
-            let key2 = 62usize as Ptr;
-            table.set(key2.clone(), Value::Number(13f32));
+            let key2 = Rc::new(62usize as Ptr);
+            table.set(*key2, Value::Number(13f32));
 
-            table.delete(key1);
+            table.delete(*key1);
             let val = table.get(&key1);
             assert!(matches!(val, None));
 
@@ -285,21 +286,21 @@ mod tests {
     pub fn test_delete_get_and_set() {
         unsafe {
             let mut table = HashTable::new();
-            let key1 = 12usize as Ptr;
-            table.set(key1.clone(), Value::Number(12f32));
+            let key1 = Rc::new(12usize as Ptr);
+            table.set(*key1, Value::Number(12f32));
 
-            let key2 = 62usize as Ptr;
-            table.set(key2.clone(), Value::Number(13f32));
+            let key2 = Rc::new(62usize as Ptr);
+            table.set(*key2, Value::Number(13f32));
 
-            table.delete(key1);
+            table.delete(*key1);
             let val = table.get(&key1);
             assert!(matches!(val, None));
 
             let mut val2 = table.get(&key2).unwrap();
             assert!(matches!(val2, Value::Number(13f32)));
 
-            let key3 = 112usize as Ptr;
-            table.set(key3.clone(), Value::Number(14f32));
+            let key3 = Rc::new(112usize as Ptr);
+            table.set(*key3, Value::Number(14f32));
 
             let val3 = table.get(&key3).unwrap();
             assert!(matches!(val3, Value::Number(14f32)));
@@ -314,10 +315,10 @@ mod tests {
         unsafe {
             let mut table = HashTable::new();
             let key1 = 12usize as Ptr;
-            table.set(key1.clone(), Value::Number(12f32));
+            table.set(key1, Value::Number(12f32));
 
             let key2 = 62usize as Ptr;
-            table.set(key2.clone(), Value::Number(13f32));
+            table.set(key2, Value::Number(13f32));
 
             assert_eq!(table.get_count(), 2);
 
@@ -331,7 +332,7 @@ mod tests {
         unsafe {
             let mut table = HashTable::new();
             let key1 = 12usize as Ptr;
-            table.set(key1.clone(), Value::Number(12f32));
+            table.set(key1, Value::Number(12f32));
 
             let all = table.get_all();
             assert_eq!(all.len(), 1);
