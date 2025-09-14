@@ -1,0 +1,13 @@
+fun compute_fibonacci_of_(len)_size {
+    if len is 0 {
+        return 0;
+    }
+
+    if len is 1 {
+        return 1;
+    }
+
+    return compute_fibonacci_of_(len - 1)_size + compute_fibonacci_of_(len - 2)_size;
+}
+
+print compute_fibonacci_of_(20)_size;
