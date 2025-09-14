@@ -585,6 +585,8 @@ impl<'a> VM<'a> {
                     self.execution_stack.offset = self.execution_stack.real_len();
 
                     self.execution_stack.push(Value::Number(old_offset as f32));
+
+                    args.reverse();
                     args.into_iter().for_each(|arg| self.execution_stack.push(arg));
 
                     self.ip = ip;

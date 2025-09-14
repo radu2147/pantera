@@ -4,8 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pantera-parser = { path = "src/pantera-parser" }
-pantera-ast = { path = "src/pantera-ast" }
-pantera-compiler = { path = "src/pantera-compiler" }
-pantera-vm = { path = "src/pantera-vm" }
-pantera-heap = { path = "src/pantera-heap" }
+pantera-cli = { path = "src/pantera-cli" }

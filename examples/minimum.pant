@@ -1,0 +1,21 @@
+fun find(peak)for(arr)of(len)elements {
+    var rez = arr's 0;
+    if peak is not "minimum" and peak is not "maximum" {
+        return -1;
+    }
+    loop 1..len as it {
+        if peak is "minimum" {
+            if arr's (it) < rez {
+                rez = arr's (it);
+            }
+        } else {
+            if arr's (it) > rez {
+                rez = arr's (it);
+            }
+        }
+    }
+
+    return rez;
+}
+
+print find("maximum")for([21,2,3,45, 67])of(5)elements;
