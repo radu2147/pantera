@@ -1,21 +1,23 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use pantera_heap::heap::{HeapManager, Ptr};
 use pantera_heap::stack::Stack;
 use pantera_heap::value::Value;
 use crate::runtime_context::RuntimeContext;
 
-pub struct GC<'a> {
-    pub heap_manager: &'a mut HeapManager,
+pub struct GC {
+    pub heap_manager: Rc<RefCell<HeapManager>>,
 }
 
-impl<'a> GC<'a> {
-    pub fn new(heap_manager: &'a mut HeapManager) -> Self {
+impl GC {
+    pub fn new(heap_manager: Rc<RefCell<HeapManager>>) -> Self {
         Self {
             heap_manager,
         }
     }
     fn mark(&self, context: &RuntimeContext) -> HashMap<Ptr, bool> {
-        let mut iterable_objects = self.heap_manager.objects.clone();
+        let mut iterable_objects = self.heap_manager.borrow().objects.clone();
 
         self.mark_globals(&mut iterable_objects, context.globals);
         self.mark_stack(&mut iterable_objects, context.execution_stack);
@@ -24,7 +26,7 @@ impl<'a> GC<'a> {
     }
 
     fn mark_strings(&self, context: &RuntimeContext) -> HashMap<Ptr, bool> {
-        let mut iterable_strings = self.heap_manager.interned_strings.iter().filter(|(_str_ptr, is_compiled)| !**is_compiled).map(|(str_ptr, _is_compiled)| (*str_ptr, false)).collect::<HashMap<Ptr, bool>>();
+        let mut iterable_strings = self.heap_manager.borrow().interned_strings.iter().filter(|(_str_ptr, is_compiled)| !**is_compiled).map(|(str_ptr, _is_compiled)| (*str_ptr, false)).collect::<HashMap<Ptr, bool>>();
 
         self.mark_globals(&mut iterable_strings, context.globals);
         self.mark_stack(&mut iterable_strings, context.execution_stack);
@@ -59,7 +61,7 @@ impl<'a> GC<'a> {
     fn sweep_objects(&mut self, objects: HashMap<Ptr, bool>) {
         for (key, value) in objects {
             if !value {
-                self.heap_manager.free_object(key);
+                self.heap_manager.borrow_mut().free_object(key);
             }
         }
     }
@@ -67,13 +69,13 @@ impl<'a> GC<'a> {
     fn sweep_strings(&mut self, strings: HashMap<Ptr, bool>) {
         for (key, value) in strings {
             if !value {
-                self.heap_manager.free_string(key);
+                self.heap_manager.borrow_mut().free_string(key);
             }
         }
     }
 
     pub fn collect(&mut self, context: &RuntimeContext) {
-        if (self.heap_manager.objects.len() + self.heap_manager.interned_strings.len()) <= 10 {
+        if (self.heap_manager.borrow().objects.len() + self.heap_manager.borrow().interned_strings.len()) <= 10 {
             return;
         }
 

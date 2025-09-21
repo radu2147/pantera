@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
+use std::rc::Rc;
 use clap::Parser;
 use clap_derive::Parser;
 use pantera_compiler::compiler::Compiler;
@@ -37,16 +39,16 @@ pub fn run_pantera() {
                 let lexer = Lexer::new(&s);
                 let parser = PanteraParser::new(lexer.scan_tokens().unwrap());
 
-                let mut heap_manager = HeapManager::new();
+                let heap_manager = Rc::new(RefCell::new(HeapManager::new()));
 
-                let compiler = Compiler::new(&mut heap_manager);
+                let compiler = Compiler::new(Rc::clone(&heap_manager));
                 let code = compiler.compile(parser);
                 let mut execution_stack = Stack::init();
                 let mut globals = init_vm_globals();
                 let mut gc = GC {
-                    heap_manager: &mut heap_manager,
+                    heap_manager: Rc::clone(&heap_manager),
                 };
-                let mut vm = VM::new(code, &mut execution_stack, &mut globals, &mut gc);
+                let mut vm = VM::new(code, &mut execution_stack, &mut globals, &mut gc, Rc::clone(&heap_manager));
                 vm.execute();
             }
         }

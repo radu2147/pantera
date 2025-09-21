@@ -1,7 +1,9 @@
 pub mod gc;
 pub mod runtime_context;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
@@ -17,7 +19,8 @@ pub struct VM<'a> {
     execution_stack: &'a mut Stack,
     ip: usize,
     globals: &'a mut HashMap<u16, Value>,
-    gc: &'a mut GC<'a>
+    gc: &'a mut GC,
+    heap_manager: Rc<RefCell<HeapManager>>
 }
 
 impl<'a> VM<'a> {
@@ -167,7 +170,7 @@ impl<'a> VM<'a> {
                         Value::String(ptr1) => {
                             match val2 {
                                 Value::String(ptr2) => {
-                                    self.execution_stack.push(Value::String(self.gc.heap_manager.concatenate_strings(ptr2, ptr1)));
+                                    self.execution_stack.push(Value::String(self.heap_manager.borrow_mut().concatenate_strings(ptr2, ptr1)));
                                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
                                 _ => panic!("A string must only be added to another string")
@@ -176,7 +179,7 @@ impl<'a> VM<'a> {
                         Value::Object(ptr1) => {
                             match val2 {
                                 Value::Object(ptr2) => {
-                                    self.execution_stack.push(Value::Object(self.gc.heap_manager.concatenate_objects(ptr1, ptr2)));
+                                    self.execution_stack.push(Value::Object(self.heap_manager.borrow_mut().concatenate_objects(ptr1, ptr2)));
                                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
                                 _ => panic!("A string must only be added to another string")
@@ -670,7 +673,7 @@ impl<'a> VM<'a> {
                         obj.insert(str_ptr, values_iter.next().unwrap());
                     }
 
-                    let obj_ptr = self.gc.heap_manager.allocate_object(obj).unwrap();
+                    let obj_ptr = self.heap_manager.borrow_mut().allocate_object(obj).unwrap();
                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
 
                     self.execution_stack.push(Value::Object(obj_ptr));
@@ -683,7 +686,7 @@ impl<'a> VM<'a> {
                         values.push(self.execution_stack.pop().unwrap());
                     }
 
-                    let obj_ptr = self.gc.heap_manager.allocate_array(values).unwrap();
+                    let obj_ptr = self.heap_manager.borrow_mut().allocate_array(values).unwrap();
                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
 
                     self.execution_stack.push(Value::Array(obj_ptr));
@@ -693,14 +696,14 @@ impl<'a> VM<'a> {
                     match self.execution_stack.pop().unwrap() {
                         Value::Object(obj) => {
                             let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
-                            let val = self.gc.heap_manager.get_property_from_object(obj, &key);
+                            let val = self.heap_manager.borrow().get_property_from_object(obj, &key);
                             self.execution_stack.push(val);
                         }
                         Value::Array(arr) => {
                             let accessor = self.execution_stack.pop().unwrap();
                             let val = match accessor {
-                                Value::String(key) => self.gc.heap_manager.get_property_from_array(arr, key),
-                                Value::Number(num) => self.gc.heap_manager.get_property_from_array_num(arr, num as usize),
+                                Value::String(key) => self.heap_manager.borrow().get_property_from_array(arr, key),
+                                Value::Number(num) => self.heap_manager.borrow().get_property_from_array_num(arr, num as usize),
                                 _ => panic!("Not a valid key")
                             };
 
@@ -718,7 +721,7 @@ impl<'a> VM<'a> {
                             let val_to_set = self.execution_stack.pop().unwrap();
                             let cloned_val_to_set = val_to_set.clone();
 
-                            self.gc.heap_manager.set_property_for_object(obj, str_key, val_to_set);
+                            self.heap_manager.borrow_mut().set_property_for_object(obj, str_key, val_to_set);
                             self.execution_stack.push(cloned_val_to_set);
                         }
                         Value::Array(arr) => {
@@ -727,10 +730,10 @@ impl<'a> VM<'a> {
 
                             match object_key {
                                 Value::String(str_key) => {
-                                    self.gc.heap_manager.set_property_for_array(arr, str_key, val_to_set);
+                                    self.heap_manager.borrow_mut().set_property_for_array(arr, str_key, val_to_set);
                                 },
                                 Value::Number(num_key) => {
-                                    self.gc.heap_manager.set_property_for_array_num(arr, num_key as usize, val_to_set);
+                                    self.heap_manager.borrow_mut().set_property_for_array_num(arr, num_key as usize, val_to_set);
                                 }
                                 _ => { panic!("Not a valid key"); }
                             }
@@ -749,13 +752,14 @@ impl<'a> VM<'a> {
         }
     }
 
-    pub fn new(code: Vec<Bytecode>, execution_stack:  &'a mut Stack, globals: &'a mut HashMap<u16, Value>, gc: &'a mut GC<'a>) -> Self {
+    pub fn new(code: Vec<Bytecode>, execution_stack:  &'a mut Stack, globals: &'a mut HashMap<u16, Value>, gc: &'a mut GC, heap_manager: Rc<RefCell<HeapManager>>) -> Self {
         Self {
             code,
             execution_stack,
             ip: 0usize,
             globals,
-            gc
+            gc,
+            heap_manager
         }
     }
 

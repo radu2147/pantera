@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use pantera_ast::expression_visitor::{IntoExpressionVisitorMut};
 use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
@@ -18,8 +20,8 @@ pub enum Context {
 }
 
 #[derive(Debug)]
-pub struct Compiler<'a> {
-    pub heap_manager: &'a mut HeapManager,
+pub struct Compiler {
+    pub heap_manager: Rc<RefCell<HeapManager>>,
     pub code: Vec<Bytecode>,
     pub env: Box<Env>,
     pub break_stmt: Vec<Vec<usize>>,
@@ -28,8 +30,8 @@ pub struct Compiler<'a> {
     pub active_func_args: HashMap<String, Vec<String>>,
 }
 
-impl<'a> Compiler<'a> {
-    pub fn new(heap_manager: &'a mut HeapManager) -> Self {
+impl Compiler {
+    pub fn new(heap_manager: Rc<RefCell<HeapManager>>) -> Self {
         Compiler {
             break_stmt: vec![],
             code: vec![],
@@ -48,7 +50,7 @@ impl<'a> Compiler<'a> {
     }
 }
 
-impl Compiler<'_> {
+impl Compiler {
     pub(crate)fn emit_byte(&mut self, byte_code: Bytecode) {
         self.code.push(byte_code);
     }
@@ -130,7 +132,7 @@ impl Compiler<'_> {
     }
 }
 
-impl IntoExpressionVisitorMut for Compiler<'_> {
+impl IntoExpressionVisitorMut for Compiler {
     fn visit_nil_expression(&mut self) {
         self.emit_null();
     }
@@ -146,7 +148,7 @@ impl IntoExpressionVisitorMut for Compiler<'_> {
     fn visit_string_expression(&mut self, value: String) {
         self.emit_bytes(OP_PUSH, Type::String as Bytecode);
 
-        let ptr = self.heap_manager.allocate_compiled_string(value).unwrap();
+        let ptr = self.heap_manager.borrow_mut().allocate_compiled_string(value).unwrap();
         (ptr as u64).to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
@@ -247,7 +249,7 @@ impl IntoExpressionVisitorMut for Compiler<'_> {
     }
 }
 
-impl IntoStatementVisitorMut for Compiler<'_> {
+impl IntoStatementVisitorMut for Compiler {
     fn visit_function_body(&mut self, stmt: BlockStatement) {
         self.env = Box::new(Env::new_frame(self.env.clone()));
         self.env.set_variable("__offset__".to_string());
