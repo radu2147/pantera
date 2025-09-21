@@ -3,7 +3,7 @@ use std::ptr;
 use crate::bytes::{read_byte, read_bytes, read_number, read_pointer, write_bool, write_byte, write_number, write_pointer};
 use crate::heap::{HeapManager, Ptr};
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{FunctionValue, Value};
 
 const TABLE_SIZE: usize = 50;
 
@@ -57,9 +57,15 @@ pub unsafe fn set_value(entry: Ptr, value: Value) {
             write_byte(dest, Type::Null as u8);
             write_number(dest.add(1), 0f64);
         }
-        Value::Function(func_ptr, _) => {
-            write_byte(dest, Type::Function as u8);
-            write_pointer(dest.add(1), func_ptr as Ptr);
+        Value::Function(func) => {
+            match func {
+                FunctionValue::UserDefined(func_ptr, _) => {
+                    write_byte(dest, Type::Function as u8);
+                    write_pointer(dest.add(1), func_ptr as Ptr);
+                },
+                _ => todo!()
+            }
+
         },
         Value::String(str_ptr) => {
             *dest = Type::String as u8;

@@ -8,6 +8,7 @@ use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRIN
 use crate::env::Env;
 use pantera_heap::heap::HeapManager;
 use pantera_heap::types::Type;
+use pantera_std::init_compiler_globals;
 
 #[derive(Debug, Clone)]
 pub enum Context {
@@ -34,7 +35,7 @@ impl<'a> Compiler<'a> {
             code: vec![],
             env: Box::new(Env::new()),
             context: Context::Global,
-            globals: HashMap::new(),
+            globals: init_compiler_globals(),
             active_func_args: HashMap::new(),
             heap_manager
         }
@@ -48,44 +49,48 @@ impl<'a> Compiler<'a> {
 }
 
 impl Compiler<'_> {
-    pub fn emit_byte(&mut self, byte_code: Bytecode) {
+    pub(crate)fn emit_byte(&mut self, byte_code: Bytecode) {
         self.code.push(byte_code);
     }
 
-    pub fn emit_bytes(&mut self, byte_code1: Bytecode, byte_code2: Bytecode) {
+    pub(crate)fn emit_bytes(&mut self, byte_code1: Bytecode, byte_code2: Bytecode) {
         self.code.push(byte_code1);
         self.code.push(byte_code2);
     }
 
-    pub fn emit_number(&mut self, number: f32) {
+    pub(crate)fn emit_number(&mut self, number: f32) {
         self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Number as Bytecode);
         Self::convert_number_to_bytes(number).into_iter().for_each(|bc| self.emit_byte(bc));
     }
 
-    pub fn emit_boolean(&mut self, val: bool) {
+    pub(crate)fn emit_boolean(&mut self, val: bool) {
         self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Boolean as Bytecode);
         self.emit_byte(Self::convert_bool_to_byte(val));
     }
 
-    pub fn emit_null(&mut self) {
+    pub(crate)fn emit_null(&mut self) {
         self.emit_bytes(OP_PUSH, Type::Null as Bytecode);
     }
 
-    pub fn emit_jump(&mut self) -> usize {
+    pub(crate) fn emit_temp_byte(&mut self) {
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+        self.emit_byte(0);
+    }
+
+    pub(crate) fn emit_jump(&mut self) -> usize {
         self.emit_byte(OP_JUMP);
         let loc = self.code.len();
 
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
+        self.emit_temp_byte();
 
         loc
     }
 
-    pub fn emit_hash(&mut self, variable: String) {
+    pub(crate) fn emit_hash(&mut self, variable: String) {
         if let Some(key) = self.globals.get(&variable) {
             key.to_le_bytes().iter().for_each(|bt|self.emit_byte(*bt));
             return;
@@ -95,7 +100,7 @@ impl Compiler<'_> {
         val.to_le_bytes().into_iter().for_each(|bt| self.emit_byte(bt));
     }
 
-    pub fn back_patch(&mut self, index: usize) {
+    pub(crate) fn back_patch(&mut self, index: usize) {
         let numb = Self::convert_number_to_bytes(self.code.len() as f32);
         self.code[index] = numb[0];
         self.code[index + 1] = numb[1];
@@ -104,11 +109,11 @@ impl Compiler<'_> {
     }
 
     #[inline]
-    pub fn convert_number_to_bytes(number: f32) -> [u8;4] {
+    pub(crate) fn convert_number_to_bytes(number: f32) -> [u8;4] {
         number.to_le_bytes()
     }
 
-    pub fn convert_bool_to_byte(val: bool) -> u8 {
+    pub(crate) fn convert_bool_to_byte(val: bool) -> u8 {
         if val{
             return 1;
         }
@@ -260,10 +265,7 @@ impl IntoStatementVisitorMut for Compiler<'_> {
         self.emit_byte(OP_PUSH);
         self.emit_byte(Type::Function as Bytecode);
         let addr = self.code.len();
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
+        self.emit_temp_byte();
 
         self.emit_byte(func_dec.params.len() as Bytecode);
         self.active_func_args.insert(func_dec.name.name.clone(), func_dec.params.into_iter().map(|param| param.name).collect::<Vec<String>>());
@@ -290,10 +292,7 @@ impl IntoStatementVisitorMut for Compiler<'_> {
         if let Some(cont) = self.break_stmt.get_mut(cont_ind) {
             cont.push(self.code.len());
         }
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
+        self.emit_temp_byte();
     }
 
     fn visit_print_statement(&mut self, stmt: PrintStatement) {
@@ -335,10 +334,7 @@ impl IntoStatementVisitorMut for Compiler<'_> {
 
         let loc = self.code.len();
 
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
-        self.emit_byte(0);
+        self.emit_temp_byte();
 
         self.visit_local_statement(stmt.body);
         if let Some(alt) = stmt.alternative {

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use pantera_heap::heap::{HeapManager, Ptr};
+use pantera_heap::stack::Stack;
 use pantera_heap::value::Value;
 use crate::runtime_context::RuntimeContext;
-use crate::stack::Stack;
 
 pub struct GC<'a> {
     pub heap_manager: &'a mut HeapManager,

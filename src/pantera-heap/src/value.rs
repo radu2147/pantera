@@ -1,13 +1,20 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Add;
 use crate::heap::{HeapManager, Ptr};
+use crate::stack::Stack;
+
+#[derive(Debug, Clone)]
+pub enum FunctionValue {
+    Builtin(fn(&mut Stack)),
+    UserDefined(usize, u8)
+}
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Number(f32),
     Bool(bool),
     Null,
-    Function(usize, u8),
+    Function(FunctionValue),
     String(Ptr),
     Object(Ptr),
     Array(Ptr)
@@ -19,7 +26,7 @@ impl Display for Value {
             Self::Number(num) => f.write_str(&num.to_string()),
             Self::Null => f.write_str("null"),
             Self::Bool(val) => f.write_str(&val.to_string()),
-            Self::Function(_, _) => f.write_str("[function]"),
+            Self::Function(_) => f.write_str("[function]"),
             Self::String(ptr) => {
                 let str = HeapManager::get_string(*ptr);
                 f.write_str(&str.to_string())

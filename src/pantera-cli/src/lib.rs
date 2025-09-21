@@ -1,14 +1,14 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use clap::Parser;
 use clap_derive::Parser;
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::heap::HeapManager;
+use pantera_heap::stack::Stack;
 use pantera_parser::lexer::Lexer;
 use pantera_parser::parser::Parser as PanteraParser;
+use pantera_std::init_vm_globals;
 use pantera_vm::gc::GC;
-use pantera_vm::stack::Stack;
 use pantera_vm::VM;
 
 #[derive(Parser)]
@@ -42,7 +42,7 @@ pub fn run_pantera() {
                 let compiler = Compiler::new(&mut heap_manager);
                 let code = compiler.compile(parser);
                 let mut execution_stack = Stack::init();
-                let mut globals = HashMap::new();
+                let mut globals = init_vm_globals();
                 let mut gc = GC {
                     heap_manager: &mut heap_manager,
                 };

@@ -1,6 +1,5 @@
-pub mod stack;
 pub mod gc;
-mod runtime_context;
+pub mod runtime_context;
 
 use std::collections::HashMap;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
@@ -8,8 +7,8 @@ use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
 use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE_ARRAY, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
 use pantera_heap::heap::HeapManager;
-use crate::stack::Stack;
-use pantera_heap::value::Value;
+use pantera_heap::stack::Stack;
+use pantera_heap::value::{FunctionValue, Value};
 use crate::gc::GC;
 use crate::runtime_context::RuntimeContext;
 
@@ -48,7 +47,7 @@ impl<'a> VM<'a> {
                 }
                 let arity = *self.peek().unwrap();
                 self.advance();
-                Value::Function(Compiler::convert_number_from_bytes(bytes) as usize, arity)
+                Value::Function(FunctionValue::UserDefined(Compiler::convert_number_from_bytes(bytes) as usize, arity))
             },
             Type::String => {
                 let mut bytes: [Bytecode; HeapManager::get_object_entry_size()] = [0;HeapManager::get_object_entry_size()];
@@ -301,10 +300,32 @@ impl<'a> VM<'a> {
                                 }
                             }
                         },
-                        Value::Function(ip, _) => {
+                        Value::Function(fun) => {
                             match val2 {
-                                Value::Function(ip2, _) => {
-                                    self.execution_stack.push(Value::Bool(ip == ip2));
+                                Value::Function(fun2) => {
+                                    match fun {
+                                        FunctionValue::UserDefined(ip, _) => {
+                                            match fun2 {
+                                                FunctionValue::UserDefined(ip2, _) => {
+                                                    self.execution_stack.push(Value::Bool(ip == ip2));
+                                                },
+                                                _ => {
+                                                    self.execution_stack.push(Value::Bool(false));
+                                                }
+                                            }
+                                        },
+                                        FunctionValue::Builtin(fun) => {
+                                            match fun2 {
+                                                FunctionValue::Builtin(fun2) => {
+                                                    self.execution_stack.push(Value::Bool(fun == fun2));
+                                                },
+                                                _ => {
+                                                    self.execution_stack.push(Value::Bool(false));
+                                                }
+                                            }
+                                        }
+                                    }
+
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(false));
@@ -364,10 +385,32 @@ impl<'a> VM<'a> {
                                 }
                             }
                         },
-                        Value::Function(ip, _) => {
+                        Value::Function(fun) => {
                             match val2 {
-                                Value::Function(ip2, _) => {
-                                    self.execution_stack.push(Value::Bool(ip != ip2));
+                                Value::Function(fun2) => {
+                                    match fun {
+                                        FunctionValue::UserDefined(ip, _) => {
+                                            match fun2 {
+                                                FunctionValue::UserDefined(ip2, _) => {
+                                                    self.execution_stack.push(Value::Bool(ip != ip2));
+                                                },
+                                                _ => {
+                                                    self.execution_stack.push(Value::Bool(true));
+                                                }
+                                            }
+                                        },
+                                        FunctionValue::Builtin(fun) => {
+                                            match fun2 {
+                                                FunctionValue::Builtin(fun2) => {
+                                                    self.execution_stack.push(Value::Bool(fun != fun2));
+                                                },
+                                                _ => {
+                                                    self.execution_stack.push(Value::Bool(true));
+                                                }
+                                            }
+                                        }
+                                    }
+
                                 },
                                 _ => {
                                     self.execution_stack.push(Value::Bool(true));
@@ -573,23 +616,31 @@ impl<'a> VM<'a> {
                 },
                 OP_CALL => {
                     self.advance();
-                    let Value::Function(ip, ar) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
-                    let mut args = vec![];
-                    for _ in 0..ar {
-                        args.push(self.execution_stack.pop().unwrap());
+                    let Value::Function(func_val) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    match func_val {
+                        FunctionValue::UserDefined(ip, ar) => {
+                            let mut args = vec![];
+                            for _ in 0..ar {
+                                args.push(self.execution_stack.pop().unwrap());
+                            }
+                            self.execution_stack.push(Value::Null);
+                            self.execution_stack.push(Value::Number(self.ip as f32));
+
+                            let old_offset = self.execution_stack.offset;
+                            self.execution_stack.offset = self.execution_stack.real_len();
+
+                            self.execution_stack.push(Value::Number(old_offset as f32));
+
+                            args.reverse();
+                            args.into_iter().for_each(|arg| self.execution_stack.push(arg));
+
+                            self.ip = ip;
+                        }
+                        FunctionValue::Builtin(func) => {
+                            func(&mut self.execution_stack);
+                        }
                     }
-                    self.execution_stack.push(Value::Null);
-                    self.execution_stack.push(Value::Number(self.ip as f32));
 
-                    let old_offset = self.execution_stack.offset;
-                    self.execution_stack.offset = self.execution_stack.real_len();
-
-                    self.execution_stack.push(Value::Number(old_offset as f32));
-
-                    args.reverse();
-                    args.into_iter().for_each(|arg| self.execution_stack.push(arg));
-
-                    self.ip = ip;
                 },
                 OP_END_FUNCTION => {
                     self.execution_stack.reset_to(1usize);

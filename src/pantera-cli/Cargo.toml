@@ -14,3 +14,4 @@ pantera-ast = { path = "../pantera-ast" }
 pantera-compiler = { path = "../pantera-compiler" }
 pantera-vm = { path = "../pantera-vm" }
 pantera-heap = { path = "../pantera-heap" }
+pantera-std = { path = "../pantera-std" }

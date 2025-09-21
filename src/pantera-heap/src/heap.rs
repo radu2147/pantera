@@ -4,7 +4,7 @@ use crate::array::Array;
 use crate::bytes::{read_bytes_until_null, read_string, write_byte, write_string};
 use crate::hash_table::HashTable;
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{FunctionValue, Value};
 
 pub type Ptr = *mut u8;
 
@@ -113,7 +113,7 @@ impl HeapManager {
                 for i in 0..4 {
                     arr[i] = value_bytes[i];
                 }
-                Value::Function(u32::from_le_bytes(arr) as usize, 0)
+                Value::Function(FunctionValue::UserDefined(u32::from_le_bytes(arr) as usize, 0))
             },
             _ => panic!("")
         }

@@ -2,7 +2,7 @@ use std::alloc::{alloc, Layout};
 use crate::bytes::{read_byte, read_bytes, read_number, write_bool, write_byte, write_number, write_pointer};
 use crate::heap::{HeapManager, Ptr};
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{FunctionValue, Value};
 
 const ARRAY_SIZE: usize = 50;
 
@@ -42,9 +42,16 @@ pub unsafe fn set_value(dest: Ptr, value: Value) {
             write_byte(dest, Type::Null as u8);
             write_number(dest.add(1), 0f64);
         }
-        Value::Function(func_ptr, _) => {
-            write_byte(dest, Type::Function as u8);
-            write_pointer(dest.add(1), func_ptr as Ptr);
+        Value::Function(func_ptr) => {
+            match func_ptr {
+                FunctionValue::UserDefined(func_ptr, _) => {
+                    write_byte(dest, Type::Function as u8);
+                    write_pointer(dest.add(1), func_ptr as Ptr);
+                },
+                _ => {
+                    todo!();
+                }
+            }
         },
         Value::String(str_ptr) => {
             *dest = Type::String as u8;

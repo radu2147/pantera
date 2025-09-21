@@ -1,5 +1,5 @@
 use std::io::Write;
-use pantera_heap::value::Value;
+use crate::value::Value;
 
 #[derive(Debug)]
 pub struct Stack {

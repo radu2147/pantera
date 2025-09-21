@@ -7,3 +7,4 @@ edition = "2021"
 pantera-parser = { path = "../pantera-parser" }
 pantera-ast = { path = "../pantera-ast" }
 pantera-heap = {path = "../pantera-heap"}
+pantera-std = {path = "../pantera-std"}
