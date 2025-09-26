@@ -1,11 +1,13 @@
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::ops::Add;
+use std::rc::Rc;
 use crate::heap::{HeapManager, Ptr};
 use crate::stack::Stack;
 
 #[derive(Debug, Clone)]
 pub enum FunctionValue {
-    Builtin(fn(&mut Stack)),
+    Builtin(fn(&mut Stack, Rc<RefCell<HeapManager>>)),
     UserDefined(usize, u8)
 }
 

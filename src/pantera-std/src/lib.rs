@@ -1,9 +1,16 @@
 pub mod sleep;
 pub mod len;
+mod input;
+mod atoi;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
+use pantera_heap::heap::HeapManager;
 use pantera_heap::stack::Stack;
 use pantera_heap::value::{FunctionValue, Value};
+use crate::atoi::atoi;
+use crate::input::input;
 use crate::len::len;
 use crate::sleep::sleep;
 
@@ -29,11 +36,11 @@ pub fn init_compiler_globals() -> HashMap<String, u16> {
 
 struct StdLibEntry {
     name: &'static str,
-    func: fn(&mut Stack)
+    func: fn(&mut Stack, Rc<RefCell<HeapManager>>)
 }
 
 impl StdLibEntry {
-    const fn new(name: &'static str, func: fn(&mut Stack)) -> Self {
+    const fn new(name: &'static str, func: fn(&mut Stack, Rc<RefCell<HeapManager>>)) -> Self {
         Self {
             name, func
         }
@@ -55,4 +62,4 @@ macro_rules! generate_std_lib {
     (@sub $t:tt) => { () };
 }
 
-generate_std_lib!(len, sleep);
+generate_std_lib!(len, sleep, input, atoi);

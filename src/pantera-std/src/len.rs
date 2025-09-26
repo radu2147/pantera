@@ -1,9 +1,12 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use pantera_heap::stack::Stack;
 use pantera_heap::value::Value;
 use pantera_heap::array::Array;
 use pantera_heap::hash_table::HashTable;
+use pantera_heap::heap::HeapManager;
 
-pub fn len(stack: &mut Stack) {
+pub fn len(stack: &mut Stack, _heap_manager: Rc<RefCell<HeapManager>>) {
     let collection = stack.pop().unwrap();
     match collection {
         Value::Array(arr) => unsafe {

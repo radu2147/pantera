@@ -640,7 +640,7 @@ impl<'a> VM<'a> {
                             self.ip = ip;
                         }
                         FunctionValue::Builtin(func) => {
-                            func(&mut self.execution_stack);
+                            func(&mut self.execution_stack, Rc::clone(&self.heap_manager));
                         }
                     }
 
