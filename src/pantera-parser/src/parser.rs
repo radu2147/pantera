@@ -192,55 +192,130 @@ impl Parser{
 
             }
             if self.peek().typ == TokenType::LeftParen {
-                let body = self.parse_statement()?;
-                let Statement::Block(stmts) = body else { panic!("Not a block statement"); };
+                if let Some(stop) = range.stop {
+                    let body = self.parse_statement()?;
+                    let Statement::Block(stmts) = body else { panic!("Not a block statement"); };
 
-                let [start, stop]: [Expression;2] = if iterate_reverse {[range.stop.unwrap(), range.start]} else {[range.start, range.stop.unwrap()]};
+                    let [start, stop]: [Expression; 2] = if iterate_reverse { [stop, range.start] } else { [range.start, stop] };
 
-                let mut statements = vec![];
-                let init_clause = Statement::Declaration(
-                    DeclarationStatement{
+                    let mut statements = vec![];
+                    let init_clause = Statement::Declaration(
+                        DeclarationStatement {
+                            kind: DeclarationKind::Var,
+                            variable: alias.clone(),
+                            value: Some(start),
+                        }
+                    );
+                    let mut loop_stmts = vec![];
+                    stmts.statements.into_iter().for_each(|st| loop_stmts.push(st));
+
+                    statements.push(Statement::Block(Box::from(BlockStatement {
+                        statements: loop_stmts,
+                    })));
+
+                    statements.push(Statement::Expression(Box::from(ExpressionStatement {
+                        expr: Expression::Assigment(Box::from(AssignmentExpression {
+                            assignee: Expression::Identifier(alias.clone()),
+                            value: Expression::Binary(Box::from(BinaryExpression {
+                                left: Expression::Identifier(alias.clone()),
+                                operator: if iterate_reverse { Operator::Minus } else { Operator::Plus },
+                                right: Expression::Number(1f32),
+                            })),
+                        }))
+                    })));
+
+                    statements.push(Statement::If(Box::from(IfStatement {
+                        condition: Expression::Binary(Box::from(BinaryExpression {
+                            left: Expression::Identifier(alias.clone()),
+                            operator: if iterate_reverse { Operator::Le } else { Operator::Ge },
+                            right: stop,
+                        })),
+                        body: Statement::Break,
+                        alternative: None,
+                    })));
+
+                    Ok(Statement::Block(Box::from(BlockStatement {
+                        statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
+                            body: Statement::Block(Box::from(BlockStatement {
+                                statements
+                            })),
+                            alias
+                        }))],
+                    })))
+                } else {
+                    let body = self.parse_statement()?;
+                    let Statement::Block(stmts) = body else { panic!("Not a block statement"); };
+
+                    let iterable_collection = range.start;
+                    let alias_index = "__".to_string() + &alias;
+
+                    let mut statements = vec![];
+                    let init_clause = Statement::Declaration(
+                        DeclarationStatement {
+                            kind: DeclarationKind::Var,
+                            variable: alias_index.clone(),
+                            value: if iterate_reverse {Some(Expression::Binary(Box::from(BinaryExpression {left: Expression::Call(Box::from(CallExpression {
+                                callee: Expression::Identifier("len".to_string()),
+                                args: vec![
+                                    iterable_collection.clone()
+                                ],
+                            })), operator: Operator::Minus, right: Expression::Number(1f32) })))} else {Some(Expression::Number(0f32))},
+                        }
+                    );
+                    let mut loop_stmts = vec![];
+                    stmts.statements.into_iter().for_each(|st| loop_stmts.push(st));
+
+                    statements.push(Statement::If(Box::from(IfStatement {
+                        condition: Expression::Binary(Box::from(BinaryExpression {
+                            left: Expression::Identifier(alias_index.clone()),
+                            operator: if iterate_reverse { Operator::Less } else { Operator::Ge },
+                            right: if iterate_reverse {Expression::Number(0f32)} else {Expression::Call(Box::from(CallExpression {
+                                callee: Expression::Identifier("len".to_string()),
+                                args: vec![
+                                    iterable_collection.clone()
+                                ],
+                            }))},
+                        })),
+                        body: Statement::Break,
+                        alternative: None,
+                    })));
+
+                    statements.push(Statement::Declaration(DeclarationStatement {
                         kind: DeclarationKind::Var,
                         variable: alias.clone(),
-                        value: Some(start),
-                    }
-                );
-                let mut loop_stmts = vec![];
-                stmts.statements.into_iter().for_each(|st|loop_stmts.push(st));
+                        value: Some(Expression::Call(Box::from(CallExpression {
+                            callee: Expression::Identifier("internal_iterable_get".to_string()),
+                            args: vec![
+                                iterable_collection,
+                                Expression::Identifier(alias_index.clone())
+                            ],
+                        }
+                    )))}));
 
-                statements.push(Statement::Block(Box::from(BlockStatement {
-                    statements: loop_stmts,
-                })));
+                    statements.push(Statement::Block(Box::from(BlockStatement {
+                        statements: loop_stmts,
+                    })));
 
-                statements.push(Statement::Expression(Box::from(ExpressionStatement {
-                    expr: Expression::Assigment(Box::from(AssignmentExpression {
-                        assignee: Expression::Identifier(alias.clone()),
-                        value: Expression::Binary(Box::from(BinaryExpression {
-                            left: Expression::Identifier(alias.clone()),
-                            operator: if iterate_reverse {Operator::Minus} else {Operator::Plus} ,
-                            right: Expression::Number(1f32),
-                        })),
-                    }))
-                })));
+                    statements.push(Statement::Expression(Box::from(ExpressionStatement {
+                        expr: Expression::Assigment(Box::from(AssignmentExpression {
+                            assignee: Expression::Identifier(alias_index.clone()),
+                            value: Expression::Binary(Box::from(BinaryExpression {
+                                left: Expression::Identifier(alias_index),
+                                operator: if iterate_reverse { Operator::Minus } else { Operator::Plus },
+                                right: Expression::Number(1f32),
+                            })),
+                        }))
+                    })));
 
-                statements.push(Statement::If(Box::from(IfStatement {
-                    condition: Expression::Binary(Box::from(BinaryExpression {
-                        left: Expression::Identifier(alias.clone()),
-                        operator: if iterate_reverse {Operator::Le} else {Operator::Ge},
-                        right: stop,
-                    })),
-                    body: Statement::Break,
-                    alternative: None,
-                })));
-
-                Ok(Statement::Block(Box::from(BlockStatement {
-                    statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
-                        body: Statement::Block(Box::from(BlockStatement{
-                            statements
-                        })),
-                        alias
-                    }))],
-                })))
+                    Ok(Statement::Block(Box::from(BlockStatement {
+                        statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
+                            body: Statement::Block(Box::from(BlockStatement {
+                                statements
+                            })),
+                            alias
+                        }))],
+                    })))
+                }
             } else {
                 Err(ParseError {
                     line: 1,

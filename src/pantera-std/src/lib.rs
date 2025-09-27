@@ -2,6 +2,7 @@ pub mod sleep;
 pub mod len;
 mod input;
 mod atoi;
+mod get;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ use pantera_heap::heap::HeapManager;
 use pantera_heap::stack::Stack;
 use pantera_heap::value::{FunctionValue, Value};
 use crate::atoi::atoi;
+use crate::get::internal_iterable_get;
 use crate::input::input;
 use crate::len::len;
 use crate::sleep::sleep;
@@ -62,4 +64,4 @@ macro_rules! generate_std_lib {
     (@sub $t:tt) => { () };
 }
 
-generate_std_lib!(len, sleep, input, atoi);
+generate_std_lib!(len, sleep, input, atoi, internal_iterable_get);
