@@ -1,9 +1,10 @@
 use std::iter::Peekable;
 use std::string::ToString;
 use std::vec::IntoIter;
-use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, Identifier, MemberExpression, ObjectExpression, Operator, UnaryExpression};
+use pantera_ast::expression::*;
+use pantera_ast::{array, assignment, binary, block, bool_, break_, call, declaration, expression, fun_body, fun_declaration, group, identifier, if_, loop_, member, multi_declaration, nil, number, object, print_, return_, string, unary};
 use crate::token::{Token, TokenType};
-use pantera_ast::statement::{BlockStatement, DeclarationKind, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, GlobalStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, Range, ReturnStatement, Statement};
+use pantera_ast::statement::*;
 use crate::errors::ParseError;
 
 pub struct Parser {
@@ -34,7 +35,7 @@ impl Parser{
             TokenType::Break => {
                 self.advance();
                 self.consume(TokenType::Semicolon, "Expected ; at the end of the statement")?;
-                Ok(Statement::Break)
+                Ok(break_!())
             },
             TokenType::Print => {
                 self.parse_print_stmt()
@@ -88,11 +89,11 @@ impl Parser{
             }
         }
 
-        Ok(GlobalStatement::FunctionDeclaration(FunctionDeclarationStatement{
+        Ok(fun_declaration!{
             name: Identifier{name: id_parts.join(FUNCTION_NAME_SEPARATOR), id: 1.0},
             params,
             body: self.parse_block_stmt(true)?,
-        }))
+        })
     }
 
     pub fn parse_function_params(&mut self) -> ParserResult<Vec<Identifier>> {
@@ -159,7 +160,7 @@ impl Parser{
             let declaration = declarations.remove(0);
             return Ok(Statement::Declaration(declaration));
         }
-        Ok(Statement::MultiDeclaration(MultiDeclarationStatement{declarations}))
+        Ok(multi_declaration! {declarations})
     }
 
     pub fn parse_loop_stmt(&mut self) -> ParserResult<Statement> {
@@ -167,10 +168,10 @@ impl Parser{
         let mut alias = "it".to_string();
         if self.peek().typ == TokenType::LeftParen {
             let body = self.parse_statement()?;
-            Ok(Statement::Loop(Box::from(LoopStatement {
+            Ok(loop_! {
                 body,
                 alias
-            })))
+            })
         } else {
             let mut iterate_reverse = false;
             if self.peek().typ == TokenType::Reverse {
@@ -199,49 +200,47 @@ impl Parser{
                     let [start, stop]: [Expression; 2] = if iterate_reverse { [stop, range.start] } else { [range.start, stop] };
 
                     let mut statements = vec![];
-                    let init_clause = Statement::Declaration(
-                        DeclarationStatement {
+                    let init_clause = declaration! {
                             kind: DeclarationKind::Var,
                             variable: alias.clone(),
                             value: Some(start),
-                        }
-                    );
+                        };
                     let mut loop_stmts = vec![];
                     stmts.statements.into_iter().for_each(|st| loop_stmts.push(st));
 
-                    statements.push(Statement::Block(Box::from(BlockStatement {
+                    statements.push(block! {
                         statements: loop_stmts,
-                    })));
+                    });
 
-                    statements.push(Statement::Expression(Box::from(ExpressionStatement {
-                        expr: Expression::Assigment(Box::from(AssignmentExpression {
-                            assignee: Expression::Identifier(alias.clone()),
-                            value: Expression::Binary(Box::from(BinaryExpression {
-                                left: Expression::Identifier(alias.clone()),
+                    statements.push(expression! {
+                        expr: assignment! {
+                            assignee: identifier!(alias.clone()),
+                            value: binary! {
+                                left: identifier!(alias.clone()),
                                 operator: if iterate_reverse { Operator::Minus } else { Operator::Plus },
-                                right: Expression::Number(1f32),
-                            })),
-                        }))
-                    })));
+                                right: number!(1f32),
+                            },
+                        }
+                    });
 
-                    statements.push(Statement::If(Box::from(IfStatement {
-                        condition: Expression::Binary(Box::from(BinaryExpression {
-                            left: Expression::Identifier(alias.clone()),
+                    statements.push(if_! {
+                        condition: binary!{
+                            left: identifier!(alias.clone()),
                             operator: if iterate_reverse { Operator::Le } else { Operator::Ge },
                             right: stop,
-                        })),
-                        body: Statement::Break,
+                        },
+                        body: break_!(),
                         alternative: None,
-                    })));
+                    });
 
-                    Ok(Statement::Block(Box::from(BlockStatement {
-                        statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
-                            body: Statement::Block(Box::from(BlockStatement {
+                    Ok(block! {
+                        statements: vec![init_clause, loop_! {
+                            body: block! {
                                 statements
-                            })),
+                            },
                             alias
-                        }))],
-                    })))
+                        }],
+                    })
                 } else {
                     let body = self.parse_statement()?;
                     let Statement::Block(stmts) = body else { panic!("Not a block statement"); };
@@ -250,71 +249,69 @@ impl Parser{
                     let alias_index = "__".to_string() + &alias;
 
                     let mut statements = vec![];
-                    let init_clause = Statement::Declaration(
-                        DeclarationStatement {
+                    let init_clause = declaration! {
                             kind: DeclarationKind::Var,
                             variable: alias_index.clone(),
-                            value: if iterate_reverse {Some(Expression::Binary(Box::from(BinaryExpression {left: Expression::Call(Box::from(CallExpression {
-                                callee: Expression::Identifier("len".to_string()),
+                            value: if iterate_reverse {Some(binary! {left: call! {
+                                callee: identifier!("len".to_string()),
                                 args: vec![
                                     iterable_collection.clone()
                                 ],
-                            })), operator: Operator::Minus, right: Expression::Number(1f32) })))} else {Some(Expression::Number(0f32))},
-                        }
-                    );
+                            }, operator: Operator::Minus, right: number!(1f32) })} else {Some(number!(0f32))},
+                        };
                     let mut loop_stmts = vec![];
                     stmts.statements.into_iter().for_each(|st| loop_stmts.push(st));
 
-                    statements.push(Statement::If(Box::from(IfStatement {
-                        condition: Expression::Binary(Box::from(BinaryExpression {
-                            left: Expression::Identifier(alias_index.clone()),
+                    statements.push(if_! {
+                        condition: binary! {
+                            left: identifier!(alias_index.clone()),
                             operator: if iterate_reverse { Operator::Less } else { Operator::Ge },
-                            right: if iterate_reverse {Expression::Number(0f32)} else {Expression::Call(Box::from(CallExpression {
-                                callee: Expression::Identifier("len".to_string()),
+                            right: if iterate_reverse {number!(0f32)} else {call! {
+                                callee: identifier!("len".to_string()),
                                 args: vec![
                                     iterable_collection.clone()
                                 ],
-                            }))},
-                        })),
-                        body: Statement::Break,
+                            }},
+                        },
+                        body: break_!(),
                         alternative: None,
-                    })));
+                    });
 
-                    statements.push(Statement::Declaration(DeclarationStatement {
+                    statements.push(declaration! {
                         kind: DeclarationKind::Var,
                         variable: alias.clone(),
-                        value: Some(Expression::Call(Box::from(CallExpression {
-                            callee: Expression::Identifier("internal_iterable_get".to_string()),
+                        value: Some(call! {
+                            callee: identifier!("internal_iterable_get".to_string()),
                             args: vec![
                                 iterable_collection,
-                                Expression::Identifier(alias_index.clone())
+                                identifier!(alias_index.clone())
                             ],
                         }
-                    )))}));
+                    )});
 
-                    statements.push(Statement::Block(Box::from(BlockStatement {
+                    statements.push(block! {
                         statements: loop_stmts,
-                    })));
+                    });
 
-                    statements.push(Statement::Expression(Box::from(ExpressionStatement {
-                        expr: Expression::Assigment(Box::from(AssignmentExpression {
-                            assignee: Expression::Identifier(alias_index.clone()),
-                            value: Expression::Binary(Box::from(BinaryExpression {
-                                left: Expression::Identifier(alias_index),
+                    statements.push(expression! {
+                        expr: assignment! {
+                            assignee: identifier!(alias_index.clone()),
+                            value: binary! {
+                                left: identifier!(alias_index),
                                 operator: if iterate_reverse { Operator::Minus } else { Operator::Plus },
-                                right: Expression::Number(1f32),
-                            })),
-                        }))
-                    })));
+                                right: number!(1f32),
+                            },
+                        }
+                    });
 
-                    Ok(Statement::Block(Box::from(BlockStatement {
-                        statements: vec![init_clause, Statement::Loop(Box::from(LoopStatement {
-                            body: Statement::Block(Box::from(BlockStatement {
+                    Ok(block! {
+                        statements: vec![init_clause, loop_! {
+                            body: block! {
                                 statements
-                            })),
+                            },
                             alias
-                        }))],
-                    })))
+                        }],
+                    })
                 }
             } else {
                 Err(ParseError {
@@ -350,17 +347,17 @@ impl Parser{
             if self.peek().typ == TokenType::Else {
                 self.advance();
                 let alternative_stmt = self.parse_statement()?;
-                Ok(Statement::If(Box::from(IfStatement{
+                Ok(if_!{
                     condition: expr,
                     body,
                     alternative: Some(alternative_stmt)
-                })))
+                })
             } else {
-                Ok(Statement::If(Box::from(IfStatement{
+                Ok(if_! {
                     condition: expr,
                     body,
                     alternative: None
-                })))
+                })
             }
         } else {
             Err(ParseError {
@@ -388,14 +385,14 @@ impl Parser{
             stmts.push(self.parse_statement()?);
         };
         if is_function {
-            Ok(Statement::FunctionBody(Box::from(BlockStatement {
+            Ok(fun_body! {
                 statements: stmts
-            })))
+            })
         }
         else {
-            Ok(Statement::Block(Box::from(BlockStatement {
+            Ok(block! {
                 statements: stmts
-            })))
+            })
         }
     }
 
@@ -403,32 +400,32 @@ impl Parser{
         self.advance();
         if self.peek().typ == TokenType::Semicolon {
             self.advance();
-            return Ok(Statement::Return(Box::from(ReturnStatement {
+            return Ok(return_! {
                 value: None
-            })));
+            });
         }
         let expr = self.parse_expression()?;
         self.consume(TokenType::Semicolon, "Expected ; at the end of the statement")?;
-        Ok(Statement::Return(Box::from(ReturnStatement {
+        Ok(return_! {
             value: Some(expr)
-        })))
+        })
     }
 
     pub fn parse_print_stmt(&mut self) -> ParserResult<Statement> {
         self.advance();
         let expr = self.parse_expression()?;
         self.consume(TokenType::Semicolon, "Expected ; at the end of the statement")?;
-        Ok(Statement::Print(Box::from(PrintStatement {
+        Ok(print_! {
             expr
-        })))
+        })
     }
 
     pub fn parse_expression_statement(&mut self) -> ParserResult<Statement> {
         let expr = self.parse_expression()?;
         self.consume(TokenType::Semicolon, "Expected ; at the end of the statement")?;
-        Ok(Statement::Expression(Box::from(ExpressionStatement{
+        Ok(expression!{
             expr
-        })))
+        })
     }
 
     pub fn parse_expression(&mut self) -> ParserResult<Expression> {
@@ -442,10 +439,10 @@ impl Parser{
             let right = self.parse_expression()?;
             return match left {
                 Expression::Identifier(_) | Expression::Member(_) => {
-                    Ok(Expression::Assigment(Box::new(AssignmentExpression{
+                    Ok(assignment! {
                         assignee: left,
                         value: right,
-                    })))
+                    })
                 },
                 _ => {
                     Err(ParseError{
@@ -465,11 +462,11 @@ impl Parser{
             self.advance();
             rez = {
                 let right_hand = self.parse_and()?;
-                Expression::Binary(Box::new(BinaryExpression {
+                binary! {
                     left: rez,
                     operator: Operator::Or,
                     right: right_hand,
-                }))
+                }
             }
         }
         Ok(rez)
@@ -481,11 +478,11 @@ impl Parser{
             self.advance();
             rez = {
                 let right_hand = self.parse_eq()?;
-                Expression::Binary(Box::new(BinaryExpression {
+                binary! {
                     left: rez,
                     operator: Operator::And,
                     right: right_hand,
-                }))
+                }
             }
         }
 
@@ -502,11 +499,11 @@ impl Parser{
                 self.advance();
             }
             let right = self.parse_rel()?;
-            return Ok(Expression::Binary(Box::new(BinaryExpression {
+            return Ok(binary! {
                 left,
                 right,
                 operator
-            })));
+            });
         }
 
         Ok(left)
@@ -524,11 +521,11 @@ impl Parser{
         if self.peek().typ == TokenType::GraterEqual || self.peek().typ == TokenType::Grater || self.peek().typ == TokenType::Less || self.peek().typ == TokenType::LessEqual {
             self.advance();
             let right = self.parse_term()?;
-            return Ok(Expression::Binary(Box::new(BinaryExpression {
+            return Ok(binary! {
                 left,
                 operator: operator.unwrap(),
                 right,
-            })));
+            });
         }
 
         Ok(left)
@@ -541,11 +538,11 @@ impl Parser{
             let operator = if op.typ == TokenType::Plus {Operator::Plus} else {Operator::Minus};
             rez = {
                 let right = self.parse_factor()?;
-                Expression::Binary(Box::new(BinaryExpression {
+                binary! {
                     left: rez,
                     operator,
                     right,
-                }))
+                }
             }
         }
 
@@ -559,11 +556,11 @@ impl Parser{
             let operator = if op.typ == TokenType::Slash {Operator::Div} else {Operator::Mul};
             rez = {
                 let right = self.parse_unary()?;
-                Expression::Binary(Box::new(BinaryExpression {
+                binary! {
                     left: rez,
                     operator,
                     right,
-                }))
+                }
             }
         }
 
@@ -575,10 +572,10 @@ impl Parser{
             let op = self.advance().unwrap();
             let operator = if op.typ == TokenType::Minus {Operator::Minus} else {Operator::NE};
             let expr = self.parse_pow()?;
-            return Ok(Expression::Unary(Box::new(UnaryExpression {
+            return Ok(unary! {
                 operator,
                 expr
-            })));
+            });
         }
         let expr = self.parse_pow()?;
         Ok(expr)
@@ -590,11 +587,11 @@ impl Parser{
             self.advance();
             rez = {
                 let right = self.parse_call()?;
-                Expression::Binary(Box::new(BinaryExpression{
+                binary! {
                     left: rez,
                     operator: Operator::Pow,
                     right
-                }))
+                }
             };
         }
 
@@ -608,17 +605,17 @@ impl Parser{
                 if matches!(rez, Expression::Identifier(_)) {
                     let (callee, args) = self.parse_function_rest(&rez)?;
 
-                    rez = Expression::Call(Box::new(CallExpression {
-                        callee: Expression::Identifier(callee),
+                    rez = call! {
+                        callee: identifier!(callee),
                         args,
-                    }))
+                    }
                 } else {
                     self.advance();
                     let args = self.parse_args()?;
-                    rez = Expression::Call(Box::new(CallExpression {
+                    rez = call! {
                         callee: rez,
                         args
-                    }))
+                    }
                 }
 
             } else if self.peek().typ == TokenType::Possesive {
@@ -628,24 +625,24 @@ impl Parser{
                     if self.peek().typ == TokenType::LeftBrace {
                         let (callee, args) = self.parse_function_rest(&member)?;
 
-                        rez = Expression::Call(Box::new(CallExpression {
-                            callee: Expression::Member(Box::new(MemberExpression {
+                        rez = call! {
+                            callee: member! {
                                 callee: rez,
-                                property: Expression::String(callee),
-                            })),
+                                property: string!(callee),
+                            },
                             args,
-                        }))
+                        }
                     } else {
-                        rez = Expression::Member(Box::new(MemberExpression {
+                        rez = member! {
                             callee: rez,
-                            property: Expression::String(member.get_identifier().unwrap().to_string()),
-                        }));
+                            property: string!(member.get_identifier().unwrap().to_string()),
+                        };
                     }
                 } else {
-                    rez = Expression::Member(Box::new(MemberExpression {
+                    rez = member! {
                         callee: rez,
                         property: member,
-                    }));
+                    };
                 }
             } else{
                 break;
@@ -701,7 +698,7 @@ impl Parser{
             let expr = self.parse_primary()?;
             match &expr {
                 Expression::Identifier(ident) => {
-                    keys.push(Expression::String(ident.to_string()));
+                    keys.push(string!(ident.to_string()));
 
                     self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
                     let val = self.parse_expression()?;
@@ -715,7 +712,7 @@ impl Parser{
                     values.push(val);
                 }
                 Expression::Number(num) => {
-                    keys.push(Expression::String(num.to_string()));
+                    keys.push(string!(num.to_string()));
 
                     self.consume(TokenType::Colon, "Key value pairs must be separated by :")?;
                     let val = self.parse_expression()?;
@@ -733,10 +730,10 @@ impl Parser{
             }
         }
         self.advance();
-        Ok(Expression::Object(Box::new(ObjectExpression{
+        Ok(object!{
             properties: keys,
             values
-        })))
+        })
     }
 
     pub fn parse_array(&mut self) -> ParserResult<Expression> {
@@ -746,33 +743,33 @@ impl Parser{
             let expr = self.parse_expression()?;
 
             values.push(expr);
-            keys.push(Expression::Number(keys.len() as f32));
+            keys.push(number!(keys.len() as f32));
 
             if self.peek().typ == TokenType::Comma {
                 self.consume(TokenType::Comma, "This error shouldn't be displayed ever")?;
             }
         }
         self.advance();
-        Ok(Expression::Array(Box::new(ArrayExpression{
+        Ok(array! {
             values
-        })))
+        })
     }
 
     pub fn parse_primary(&mut self) -> ParserResult<Expression> {
         let tok = self.advance().unwrap();
         match &tok.typ {
-            TokenType::True => Ok(Expression::Bool(true)),
-            TokenType::False => Ok(Expression::Bool(false)),
-            TokenType::Nil => Ok(Expression::Nil),
-            TokenType::String(str) => Ok(Expression::String(str.to_string())),
-            TokenType::Number(num) => Ok(Expression::Number(*num)),
-            TokenType::Identifier(ident) => Ok(Expression::Identifier(ident.to_string())),
+            TokenType::True => Ok(bool_!(true)),
+            TokenType::False => Ok(bool_!(false)),
+            TokenType::Nil => Ok(nil!{}),
+            TokenType::String(str) => Ok(string!(str.to_string())),
+            TokenType::Number(num) => Ok(number!(*num)),
+            TokenType::Identifier(ident) => Ok(identifier!(ident.to_string())),
             TokenType::LeftParen => self.parse_object(),
             TokenType::LeftSquareBracket => self.parse_array(),
             TokenType::LeftBrace => {
                 let expr = self.parse_expression()?;
                 self.consume(TokenType::RightBrace, "Expected ')' at the end of expression")?;
-                Ok(Expression::Group(Box::new(GroupExpression { expr })))
+                Ok(group! { expr })
             }
             _ => Err(ParseError {
                 message: "Expression expected".to_string(),

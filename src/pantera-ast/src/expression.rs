@@ -17,6 +17,41 @@ pub enum Expression {
     Assigment(Box<AssignmentExpression>)
 }
 
+#[macro_export]
+macro_rules! nil {
+    {} => {
+        Expression::Nil
+    };
+}
+
+#[macro_export]
+macro_rules! bool_ {
+    ($body:expr) => {
+        Expression::Bool($body)
+    };
+}
+
+#[macro_export]
+macro_rules! identifier {
+    ($body:expr) => {
+        Expression::Identifier($body)
+    };
+}
+
+#[macro_export]
+macro_rules! number {
+    ($body:expr) => {
+        Expression::Number($body)
+    };
+}
+
+#[macro_export]
+macro_rules! string {
+    ($body:expr) => {
+        Expression::String($body)
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub name: String,
@@ -29,15 +64,36 @@ pub struct AssignmentExpression {
     pub value: Expression
 }
 
+#[macro_export]
+macro_rules! assignment {
+    { $($body:tt)* } => {
+        Expression::Assigment(Box::from(AssignmentExpression { $($body)* }))
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct ObjectExpression {
     pub properties: Vec<Expression>,
     pub values: Vec<Expression>
 }
 
+#[macro_export]
+macro_rules! object {
+    { $($body:tt)* } => {
+        Expression::Object(Box::from(ObjectExpression { $($body)* }))
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct ArrayExpression {
     pub values: Vec<Expression>
+}
+
+#[macro_export]
+macro_rules! array {
+    { $($body:tt)* } => {
+        Expression::Array(Box::from(ArrayExpression { $($body)* }))
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -46,10 +102,24 @@ pub struct MemberExpression {
     pub property: Expression
 }
 
+#[macro_export]
+macro_rules! member {
+    { $($body:tt)* } => {
+        Expression::Member(Box::from(MemberExpression { $($body)* }))
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct CallExpression {
     pub callee: Expression,
     pub args: Vec<Expression>
+}
+
+#[macro_export]
+macro_rules! call {
+    { $($body:tt)* } => {
+        Expression::Call(Box::from(CallExpression { $($body)* }))
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -59,15 +129,36 @@ pub struct BinaryExpression {
     pub right: Expression
 }
 
+#[macro_export]
+macro_rules! binary {
+    { $($body:tt)* } => {
+        Expression::Binary(Box::from(BinaryExpression { $($body)* }))
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct UnaryExpression {
     pub operator: Operator,
     pub expr: Expression
 }
 
+#[macro_export]
+macro_rules! unary {
+    { $($body:tt)* } => {
+        Expression::Unary(Box::from(UnaryExpression { $($body)* }))
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct GroupExpression {
     pub expr: Expression
+}
+
+#[macro_export]
+macro_rules! group {
+    { $($body:tt)* } => {
+        Expression::Group(Box::from(GroupExpression { $($body)* }))
+    };
 }
 
 #[derive(Debug, Clone)]
