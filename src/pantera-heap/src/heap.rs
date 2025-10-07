@@ -1,8 +1,8 @@
 use std::alloc::{alloc, dealloc, Layout, LayoutError};
 use std::collections::HashMap;
-use crate::array::Array;
+use crate::array::{Array, ARRAY_BYTES_SIZE};
 use crate::bytes::{read_bytes_until_null, read_string, write_byte, write_string};
-use crate::hash_table::HashTable;
+use crate::hash_table::{HashTable, BYTES_SIZE};
 use crate::types::Type;
 use crate::value::{FunctionValue, Value};
 
@@ -12,22 +12,32 @@ pub type Ptr = *mut u8;
 pub struct HeapManager {
     pub interned_strings: HashMap<Ptr, bool>,
     pub objects: HashMap<Ptr, bool>,
-    heap_layout: HashMap<Ptr, Layout>
+    heap_layout: HashMap<Ptr, Layout>,
+    pub allocated_memory: usize,
+    pub max_heap_size: usize,
 }
 
 impl Default for HeapManager {
     fn default() -> Self {
-        Self::new()
+        Self::new(8)
     }
 }
 
 impl HeapManager {
 
-    pub fn new() ->Self {
+    pub fn new(max_heap_size: usize) ->Self {
         Self {
             interned_strings: HashMap::new(),
             objects: HashMap::new(),
-            heap_layout: HashMap::new()
+            heap_layout: HashMap::new(),
+            allocated_memory: 0,
+            max_heap_size
+        }
+    }
+
+    pub fn check_oom(&self) {
+        if self.allocated_memory >= self.max_heap_size {
+            panic!("OOM: Max heap size has been reached");
         }
     }
 
@@ -49,6 +59,9 @@ impl HeapManager {
 
             self.objects.insert(map.entries, false);
             self.heap_layout.insert(map.entries, map.layout.unwrap());
+            self.allocated_memory = self.allocated_memory + BYTES_SIZE;
+
+            self.check_oom();
 
             Ok(map.entries)
         }
@@ -171,6 +184,9 @@ impl HeapManager {
 
             self.objects.insert(arr.entries, false);
             self.heap_layout.insert(arr.entries, arr.layout.unwrap());
+            self.allocated_memory = self.allocated_memory + ARRAY_BYTES_SIZE;
+
+            self.check_oom();
 
             Ok(arr.entries)
         }
@@ -280,8 +296,9 @@ impl HeapManager {
         if let Some(existing_str) = self.check_string_is_interned(&string) {
             return Ok(existing_str);
         }
+        let internal_string_len = string.len() + 1 + 1;
         unsafe {
-            let layout = Layout::array::<u8>(string.len() + 1 + 1)?;
+            let layout = Layout::array::<u8>(internal_string_len)?;
             let ptr = alloc(layout);
 
             write_byte(ptr, Type::String as u8);
@@ -289,6 +306,9 @@ impl HeapManager {
 
             self.interned_strings.insert(ptr, is_from_compilation);
             self.heap_layout.insert(ptr, layout);
+            self.allocated_memory = self.allocated_memory + internal_string_len;
+
+            self.check_oom();
 
             Ok(ptr)
         }

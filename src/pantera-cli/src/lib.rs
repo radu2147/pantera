@@ -18,6 +18,8 @@ use pantera_vm::VM;
 struct Cli {
     /// Optional name to operate on
     file_name: Option<String>,
+    #[arg(short, long, default_value_t = 8)]
+    max_heap_size: usize,
 }
 
 pub fn run_pantera() {
@@ -36,10 +38,12 @@ pub fn run_pantera() {
         match file.read_to_string(&mut s) {
             Err(why) => panic!("couldn't read {}: {}", name, why),
             Ok(_) => {
+                let max_heap_size = cli.max_heap_size * 1024; // KB
+
                 let lexer = Lexer::new(&s);
                 let parser = PanteraParser::new(lexer.scan_tokens().unwrap());
 
-                let heap_manager = Rc::new(RefCell::new(HeapManager::new()));
+                let heap_manager = Rc::new(RefCell::new(HeapManager::new(max_heap_size)));
 
                 let compiler = Compiler::new(Rc::clone(&heap_manager));
                 let code = compiler.compile(parser);
@@ -47,6 +51,7 @@ pub fn run_pantera() {
                 let mut globals = init_vm_globals();
                 let mut gc = GC {
                     heap_manager: Rc::clone(&heap_manager),
+                    max_heap_size
                 };
                 let mut vm = VM::new(code, &mut execution_stack, &mut globals, &mut gc, Rc::clone(&heap_manager));
                 vm.execute();

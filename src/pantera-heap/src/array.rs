@@ -4,7 +4,13 @@ use crate::heap::{HeapManager, Ptr};
 use crate::types::Type;
 use crate::value::{FunctionValue, Value};
 
+pub const fn size_of() -> usize {
+    1 + 8
+}
+
 const ARRAY_SIZE: usize = 50;
+
+pub const ARRAY_BYTES_SIZE: usize = ARRAY_SIZE * size_of() + 8 + 1;
 
 pub struct Array {
     pub entries: *mut u8,
@@ -70,7 +76,7 @@ pub unsafe fn set_value(dest: Ptr, value: Value) {
 
 impl Array {
     pub unsafe fn new() -> Self {
-        let layout = Layout::array::<u8>(ARRAY_SIZE * Self::size_of() + 1 + 8).unwrap();
+        let layout = Layout::array::<u8>(ARRAY_BYTES_SIZE).unwrap();
         let arr_ptr = alloc(layout);
         write_byte(arr_ptr, Type::Array.into());
 
@@ -89,11 +95,7 @@ impl Array {
     }
 
     unsafe fn get_slot(&self, key: usize) -> Ptr {
-        self.entries.add(1 + 8).add(key * Self::size_of())
-    }
-
-    pub fn size_of() -> usize {
-        1 + 8
+        self.entries.add(1 + 8).add(key * size_of())
     }
 
     pub unsafe fn from(obj_ptr: Ptr) -> Self {

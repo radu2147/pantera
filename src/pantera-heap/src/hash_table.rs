@@ -5,7 +5,12 @@ use crate::heap::{HeapManager, Ptr};
 use crate::types::Type;
 use crate::value::{FunctionValue, Value};
 
+const fn size_of() -> usize {
+    8 + (1 + 8)
+}
+
 const TABLE_SIZE: usize = 50;
+pub const BYTES_SIZE: usize = TABLE_SIZE * size_of() + 8 + 1;
 
 #[derive(Debug)]
 pub struct HashEntry {
@@ -91,14 +96,14 @@ pub struct HashTable {
 
 impl HashTable {
     pub unsafe fn new() -> Self {
-        let layout = Layout::array::<u8>(TABLE_SIZE * Self::size_of() + 1 + 8).unwrap();
+        let layout = Layout::array::<u8>(BYTES_SIZE).unwrap();
         let obj_ptr = alloc(layout);
         write_byte(obj_ptr, Type::Object.into());
 
         Self {
             entries: obj_ptr,
             count: 0,
-            layout: Some(layout)
+            layout: Some(layout),
         }
     }
 
@@ -110,8 +115,8 @@ impl HashTable {
         }
     }
 
-    fn size_of() -> usize {
-        8 + (1 + 8)
+    const fn size_of() -> usize {
+        size_of()
     }
 
     unsafe fn get_values_start(&self) -> Ptr {

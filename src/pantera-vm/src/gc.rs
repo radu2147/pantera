@@ -6,14 +6,18 @@ use pantera_heap::stack::Stack;
 use pantera_heap::value::Value;
 use crate::runtime_context::RuntimeContext;
 
+pub const GC_RATE: f64 = 0.8;
+
 pub struct GC {
     pub heap_manager: Rc<RefCell<HeapManager>>,
+    pub max_heap_size: usize
 }
 
 impl GC {
-    pub fn new(heap_manager: Rc<RefCell<HeapManager>>) -> Self {
+    pub fn new(heap_manager: Rc<RefCell<HeapManager>>, max_heap_size: usize) -> Self {
         Self {
             heap_manager,
+            max_heap_size
         }
     }
     fn mark(&self, context: &RuntimeContext) -> HashMap<Ptr, bool> {
@@ -75,7 +79,7 @@ impl GC {
     }
 
     pub fn collect(&mut self, context: &RuntimeContext) {
-        if (self.heap_manager.borrow().objects.len() + self.heap_manager.borrow().interned_strings.len()) <= 10 {
+        if (self.heap_manager.borrow().allocated_memory) <= (GC_RATE * self.max_heap_size as f64) as usize {
             return;
         }
 
