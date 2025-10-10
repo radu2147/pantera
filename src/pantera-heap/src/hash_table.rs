@@ -18,6 +18,15 @@ pub struct HashEntry {
     pub value: Value
 }
 
+impl Default for HashEntry {
+    fn default() -> Self {
+        Self {
+            key: 0 as Ptr,
+            value: Value::Null
+        }
+    }
+}
+
 pub unsafe fn get_key(entry: Ptr) -> Ptr {
     read_pointer(entry)
 }
@@ -175,6 +184,29 @@ impl HashTable {
         }
 
         Some(get_value(entry).unwrap())
+    }
+
+    pub unsafe fn get_entry(&self, index: usize) -> HashEntry {
+        let mut real_counter = 0;
+        let mut it_ptr = self.get_values_start();
+        let mut returned_value = HashEntry::default();
+        for _i in 0..TABLE_SIZE {
+            let key = get_key(it_ptr);
+            if !key.is_null() {
+                if real_counter == index {
+                    let value = get_value(it_ptr).unwrap();
+
+                    returned_value = HashEntry { key, value };
+                    break;
+                } else {
+                    real_counter = real_counter + 1;
+                }
+            }
+
+            it_ptr = it_ptr.add(Self::size_of());
+        }
+
+        returned_value
     }
 
     pub unsafe fn set(&mut self, key: Ptr, val: Value) {

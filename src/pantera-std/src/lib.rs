@@ -2,7 +2,7 @@ pub mod sleep;
 pub mod len;
 mod input;
 mod atoi;
-mod get;
+mod internal_iterate_get;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use pantera_heap::heap::HeapManager;
 use pantera_heap::stack::Stack;
 use pantera_heap::value::{FunctionValue, Value};
 use crate::atoi::atoi;
-use crate::get::internal_iterable_get;
+use crate::internal_iterate_get::internal_iterable_get;
 use crate::input::input;
 use crate::len::len;
 use crate::sleep::sleep;
