@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, GroupExpression, MemberExpression, ObjectExpression, Operator, UnaryExpression};
 use pantera_ast::expression_visitor::{IntoExpressionVisitorMut};
-use pantera_ast::statement::{BlockStatement, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
+use pantera_ast::statement::{BlockStatement, DeclarationKind, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::{IntoStatementVisitorMut};
 use pantera_parser::parser::Parser;
 use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY, OP_ALLOCATE_ARRAY};
@@ -28,18 +28,21 @@ pub struct Compiler {
     pub context: Context,
     pub globals: HashMap<String, u16>,
     pub active_func_args: HashMap<String, Vec<String>>,
+    std_lib: HashMap<String, u16>,
 }
 
 impl Compiler {
     pub fn new(heap_manager: Rc<RefCell<HeapManager>>) -> Self {
+        let std_lib = init_compiler_globals();
         Compiler {
             break_stmt: vec![],
             code: vec![],
             env: Box::new(Env::new()),
             context: Context::Global,
-            globals: init_compiler_globals(),
+            globals: std_lib.clone(),
             active_func_args: HashMap::new(),
-            heap_manager
+            heap_manager,
+            std_lib
         }
     }
     pub fn compile(mut self, mut parser: Parser) -> Vec<Bytecode> {
@@ -154,8 +157,8 @@ impl IntoExpressionVisitorMut for Compiler {
 
     fn visit_identifier_expression(&mut self, value: String) {
         let var = self.env.get_variable(&value);
-        if var.is_some() {
-            let value = *var.unwrap();
+        if let Some(variable) = var {
+            let value = variable.key;
             self.emit_byte(OP_PUSH);
             self.emit_bytes(OP_GET, value);
         } else {
@@ -175,9 +178,15 @@ impl IntoExpressionVisitorMut for Compiler {
         self.visit_expression(value.value);
         match value.assignee {
             Expression::Identifier(ident) => {
+                if self.std_lib.contains_key(&ident) {
+                    panic!("Cannot reassign a variable with name from std lib");
+                }
                 let var = self.env.get_variable(&ident);
-                if var.is_some() {
-                    self.emit_bytes(OP_SET, *var.unwrap());
+                if let Some(variable) = var {
+                    if variable.is_constant {
+                        panic!("Cannot reassign a variable declared as const")
+                    }
+                    self.emit_bytes(OP_SET, variable.key);
                 } else {
                     self.emit_byte(OP_SET_GLOBAL);
                     self.emit_hash(ident);
@@ -253,7 +262,7 @@ impl IntoStatementVisitorMut for Compiler {
     fn visit_function_body(&mut self, stmt: BlockStatement) {
         self.env = Box::new(Env::new_frame(self.env.clone()));
         self.env.set_variable("__offset__".to_string());
-        let Context::Function(func_name) = &self.context else {panic!("Something went wronng when compiling")};
+        let Context::Function(func_name) = &self.context else {panic!("Something went wrong when compiling")};
         self.active_func_args.get(func_name).unwrap().iter().for_each(|param| self.env.set_variable(param.clone()));
 
         stmt.statements.into_iter().for_each(|stmt| self.visit_local_statement(stmt));
@@ -367,6 +376,9 @@ impl IntoStatementVisitorMut for Compiler {
     }
 
     fn visit_declaration_statement(&mut self, stmt: DeclarationStatement) {
+        if self.std_lib.contains_key(&stmt.variable) {
+            panic!("Cannot declare a variable with a name from std lib");
+        }
         if matches!(self.context, Context::Global) {
             if let Some(val) = stmt.value {
                 self.visit_expression(val);
@@ -378,8 +390,15 @@ impl IntoStatementVisitorMut for Compiler {
         }
         else if let Some(val) = stmt.value {
             self.visit_expression(val);
-            self.env.set_variable(stmt.variable.clone());
+            if matches!(stmt.kind, DeclarationKind::Const) {
+                self.env.set_constant(stmt.variable.clone());
+            } else {
+                self.env.set_variable(stmt.variable.clone());
+            }
         } else {
+            if matches!(stmt.kind, DeclarationKind::Const) {
+                panic!("Cannot declare a variable with no value as const");
+            }
             self.env.set_variable(stmt.variable);
             self.emit_byte(OP_DECLARE);
         }
