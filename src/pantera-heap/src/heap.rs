@@ -122,11 +122,12 @@ impl HeapManager {
                 Value::Bool(value_bytes.first().is_some_and(|val| *val == 1))
             },
             Type::Function => {
+                let arity = u8::from_le(*value_bytes.first().unwrap_or_else(|| {panic!("Wrong architecture");}));
                 let mut arr: [u8; 4] = [0u8; 4];
-                for i in 0..4 {
-                    arr[i] = value_bytes[i];
+                for i in 1..5 {
+                    arr[i - 1] = value_bytes[i];
                 }
-                Value::Function(FunctionValue::UserDefined(u32::from_le_bytes(arr) as usize, 0))
+                Value::Function(FunctionValue::UserDefined(u32::from_le_bytes(arr) as usize, arity))
             },
             _ => panic!("")
         }

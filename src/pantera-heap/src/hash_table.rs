@@ -57,7 +57,7 @@ pub unsafe fn get_value(entry: Ptr) -> Option<Value> {
 }
 
 pub unsafe fn set_value(entry: Ptr, value: Value) {
-    let dest = entry.add(8);
+    let mut dest = entry.add(8);
     match value {
         Value::Number(num) => {
             write_byte(dest, Type::Number as u8);
@@ -73,9 +73,12 @@ pub unsafe fn set_value(entry: Ptr, value: Value) {
         }
         Value::Function(func) => {
             match func {
-                FunctionValue::UserDefined(func_ptr, _) => {
+                FunctionValue::UserDefined(func_ptr, ar) => {
                     write_byte(dest, Type::Function as u8);
-                    write_pointer(dest.add(1), func_ptr as Ptr);
+                    dest = dest.add(1);
+                    write_byte(dest, ar);
+                    dest = dest.add(1);
+                    write_pointer(dest, func_ptr as Ptr);
                 },
                 _ => todo!()
             }
