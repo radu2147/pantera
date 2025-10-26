@@ -1,6 +1,3 @@
-pub mod gc;
-pub mod runtime_context;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -14,7 +11,7 @@ use pantera_heap::value::{FunctionValue, Value};
 use crate::gc::GC;
 use crate::runtime_context::RuntimeContext;
 
-pub struct VM<'a> {
+pub(crate) struct VM<'a> {
     code: Vec<Bytecode>,
     execution_stack: &'a mut Stack,
     ip: usize,
@@ -106,7 +103,8 @@ impl<'a> VM<'a> {
         u16::from_le_bytes(var_key)
     }
 
-    pub fn execute(&mut self) {
+    pub fn execute(&mut self) -> Result<Vec<String>, &'static str> {
+        let mut string_result = vec![];
         while !self.is_at_end() {
             match *self.peek().unwrap() {
                 OP_PUSH => {
@@ -164,7 +162,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(num2 + num1));
                                 }
-                                _ => panic!("Addition of vairables of different types is not supported")
+                                _ => return Err("Addition of vairables of different types is not supported")
                             }
                         },
                         Value::String(ptr1) => {
@@ -173,7 +171,7 @@ impl<'a> VM<'a> {
                                     self.execution_stack.push(Value::String(self.heap_manager.borrow_mut().concatenate_strings(ptr2, ptr1)));
                                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
-                                _ => panic!("A string must only be added to another string")
+                                _ => return Err("A string must only be added to another string")
                             }
                         },
                         Value::Object(ptr1) => {
@@ -182,7 +180,7 @@ impl<'a> VM<'a> {
                                     self.execution_stack.push(Value::Object(self.heap_manager.borrow_mut().concatenate_objects(ptr1, ptr2)));
                                     self.gc.collect(&RuntimeContext {globals: self.globals, execution_stack: self.execution_stack});
                                 },
-                                _ => panic!("A string must only be added to another string")
+                                _ => return Err("A string must only be added to another string")
                             }
                         },
                         _ => {
@@ -200,7 +198,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(num2 - num1));
                                 }
-                                _ => panic!("Addition of variables of different types is not supported")
+                                _ => return Err("Addition of variables of different types is not supported")
                             }
                         },
                         _ => {
@@ -218,7 +216,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(num2 * num1));
                                 }
-                                _ => panic!("Addition of vairables of different types is not supported")
+                                _ => return Err("Addition of vairables of different types is not supported")
                             }
                         },
                         _ => {
@@ -236,7 +234,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(num2 / num1));
                                 }
-                                _ => panic!("Addition of vairables of different types is not supported")
+                                _ => return Err("Addition of vairables of different types is not supported")
                             }
                         },
                         _ => {
@@ -254,11 +252,11 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Number(Self::pow_numbers(num2, num1)));
                                 }
-                                _ => panic!("Pow of variables of different types is not supported")
+                                _ => return Err("Pow of variables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("Pow of anything but numbers is not supported")
+                            return Err("Pow of anything but numbers is not supported")
                         }
                     }
                 },
@@ -272,7 +270,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Bool(num1 == num2));
                                 }
-                                _ => panic!("Equality of variables of different types is not supported")
+                                _ => return Err("Equality of variables of different types is not supported")
                             }
                         },
                         Value::Bool(val1) => {
@@ -280,7 +278,7 @@ impl<'a> VM<'a> {
                                 Value::Bool(val2) => {
                                     self.execution_stack.push(Value::Bool(val1 == val2));
                                 }
-                                _ => panic!("Equality of variables of different types is not supported")
+                                _ => return Err("Equality of variables of different types is not supported")
                             }
                         },
                         Value::Null => {
@@ -367,7 +365,7 @@ impl<'a> VM<'a> {
                                 Value::Number(num2) => {
                                     self.execution_stack.push(Value::Bool(num1 != num2));
                                 }
-                                _ => panic!("Equality of variables of different types is not supported")
+                                _ => return Err("Equality of variables of different types is not supported")
                             }
                         },
                         Value::Bool(val1) => {
@@ -375,7 +373,7 @@ impl<'a> VM<'a> {
                                 Value::Bool(val2) => {
                                     self.execution_stack.push(Value::Bool(val1 != val2));
                                 }
-                                _ => panic!("Equality of variables of different types is not supported")
+                                _ => return Err("Equality of variables of different types is not supported")
                             }
                         },
                         Value::Null => {
@@ -460,7 +458,7 @@ impl<'a> VM<'a> {
                             self.execution_stack.push(Value::Bool(!val1));
                         }
                         _ => {
-                            panic!("Notting a non-boolean value is not allowed");
+                            return Err("Notting a non-boolean value is not allowed");
                         }
                     }
                 },
@@ -472,7 +470,7 @@ impl<'a> VM<'a> {
                             self.execution_stack.push(Value::Number(-val1));
                         }
                         _ => {
-                            panic!("Minusing a non-number value is not allowed");
+                            return Err("Minusing a non-number value is not allowed");
                         }
                     }
                 }
@@ -486,11 +484,11 @@ impl<'a> VM<'a> {
                                 Value::Bool(val2) => {
                                     self.execution_stack.push(Value::Bool(val1 && val2));
                                 }
-                                _ => panic!("And of vairables of different types is not supported")
+                                _ => return Err("And of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("And of anything but boolean variables not supported")
+                            return Err("And of anything but boolean variables not supported")
                         }
                     }
                 },
@@ -504,11 +502,11 @@ impl<'a> VM<'a> {
                                 Value::Bool(val2) => {
                                     self.execution_stack.push(Value::Bool(val1 || val2));
                                 }
-                                _ => panic!("And of vairables of different types is not supported")
+                                _ => return Err("And of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("And of anything but boolean variables not supported")
+                            return Err("And of anything but boolean variables not supported")
                         }
                     }
                 },
@@ -522,11 +520,11 @@ impl<'a> VM<'a> {
                                 Value::Number(val2) => {
                                     self.execution_stack.push(Value::Bool(val2 >= val1));
                                 }
-                                _ => panic!("Comparison of vairables of different types is not supported")
+                                _ => return Err("Comparison of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("Comparison of anything but numbers variables not supported")
+                            return Err("Comparison of anything but numbers variables not supported")
                         }
                     }
                 },
@@ -540,11 +538,11 @@ impl<'a> VM<'a> {
                                 Value::Number(val2) => {
                                     self.execution_stack.push(Value::Bool(val2 > val1));
                                 }
-                                _ => panic!("Comparison of vairables of different types is not supported")
+                                _ => return Err("Comparison of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("Comparison of anything but numbers variables not supported")
+                            return Err("Comparison of anything but numbers variables not supported")
                         }
                     }
                 },
@@ -558,11 +556,11 @@ impl<'a> VM<'a> {
                                 Value::Number(val2) => {
                                     self.execution_stack.push(Value::Bool(val2 <= val1));
                                 }
-                                _ => panic!("Comparison of vairables of different types is not supported")
+                                _ => return Err("Comparison of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("Comparison of anything but numbers variables not supported")
+                            return Err("Comparison of anything but numbers variables not supported")
                         }
                     }
                 },
@@ -576,11 +574,11 @@ impl<'a> VM<'a> {
                                 Value::Number(val2) => {
                                     self.execution_stack.push(Value::Bool(val2 < val1));
                                 }
-                                _ => panic!("Comparison of vairables of different types is not supported")
+                                _ => return Err("Comparison of vairables of different types is not supported")
                             }
                         },
                         _ => {
-                            panic!("Comparison of anything but numbers variables not supported")
+                            return Err("Comparison of anything but numbers variables not supported")
                         }
                     }
                 },
@@ -602,7 +600,7 @@ impl<'a> VM<'a> {
                 OP_PRINT => {
                     self.advance();
                     let val = self.execution_stack.pop().unwrap();
-                    println!("{val}");
+                    string_result.push(format!("{val}"));
                 },
                 OP_SET => {
                     self.advance();
@@ -619,7 +617,7 @@ impl<'a> VM<'a> {
                 },
                 OP_CALL => {
                     self.advance();
-                    let Value::Function(func_val) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    let Value::Function(func_val) = self.execution_stack.pop().unwrap() else {return Err("Wrong architecture");};
                     match func_val {
                         FunctionValue::UserDefined(ip, ar) => {
                             let mut args = vec![];
@@ -647,9 +645,9 @@ impl<'a> VM<'a> {
                 },
                 OP_END_FUNCTION => {
                     self.execution_stack.reset_to(1usize);
-                    let Value::Number(off) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    let Value::Number(off) = self.execution_stack.pop().unwrap() else {return Err("Wrong architecture");};
                     self.execution_stack.offset = off as usize;
-                    let Value::Number(ip) = self.execution_stack.pop().unwrap() else {panic!("Wrong architecture");};
+                    let Value::Number(ip) = self.execution_stack.pop().unwrap() else {return Err("Wrong architecture");};
                     self.ip = ip as usize;
                 },
                 OP_SET_GLOBAL => {
@@ -661,7 +659,7 @@ impl<'a> VM<'a> {
                 },
                 OP_ALLOCATE => {
                     self.advance();
-                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {return Err("Compiling failed")};
                     let mut values = vec![];
                     let mut obj = HashMap::new();
                     for _i in 0..(len as usize) {
@@ -669,7 +667,7 @@ impl<'a> VM<'a> {
                     }
                     let mut values_iter = values.into_iter();
                     for _i in 0..(len as usize) {
-                        let Value::String(str_ptr) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                        let Value::String(str_ptr) = self.execution_stack.pop().unwrap() else {return Err("Compiling failed")};
                         obj.insert(str_ptr, values_iter.next().unwrap());
                     }
 
@@ -680,7 +678,7 @@ impl<'a> VM<'a> {
                 },
                 OP_ALLOCATE_ARRAY => {
                     self.advance();
-                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {panic!("Compiling failed")};
+                    let Value::Number(len) = self.execution_stack.pop().unwrap() else {return Err("Compiling failed")};
                     let mut values = vec![];
                     for _i in 0..(len as usize) {
                         values.push(self.execution_stack.pop().unwrap());
@@ -695,7 +693,7 @@ impl<'a> VM<'a> {
                     self.advance();
                     match self.execution_stack.pop().unwrap() {
                         Value::Object(obj) => {
-                            let Value::String(key) = self.execution_stack.pop().unwrap() else {panic!("Not a valid key");};
+                            let Value::String(key) = self.execution_stack.pop().unwrap() else {return Err("Not a valid key");};
                             let val = self.heap_manager.borrow().get_property_from_object(obj, &key);
                             self.execution_stack.push(val);
                         }
@@ -704,12 +702,12 @@ impl<'a> VM<'a> {
                             let val = match accessor {
                                 Value::String(key) => self.heap_manager.borrow().get_property_from_array(arr, key),
                                 Value::Number(num) => self.heap_manager.borrow().get_property_from_array_num(arr, num as usize),
-                                _ => panic!("Not a valid key")
+                                _ => return Err("Not a valid key")
                             };
 
                             self.execution_stack.push(val);
                         },
-                        _ => panic!("Not an accessible object")
+                        _ => return Err("Not an accessible object")
                     }
                 },
                 OP_SET_PROPERTY => {
@@ -717,7 +715,7 @@ impl<'a> VM<'a> {
                     let object_key = self.execution_stack.pop().unwrap();
                     match self.execution_stack.pop().unwrap() {
                         Value::Object(obj) => {
-                            let Value::String(str_key) = object_key else { panic!("Not a valid key"); };
+                            let Value::String(str_key) = object_key else { return Err("Not a valid key"); };
                             let val_to_set = self.execution_stack.pop().unwrap();
                             let cloned_val_to_set = val_to_set.clone();
 
@@ -735,13 +733,13 @@ impl<'a> VM<'a> {
                                 Value::Number(num_key) => {
                                     self.heap_manager.borrow_mut().set_property_for_array_num(arr, num_key as usize, val_to_set);
                                 }
-                                _ => { panic!("Not a valid key"); }
+                                _ => { return Err("Not a valid key"); }
                             }
 
                             self.execution_stack.push(cloned_val_to_set);
                         },
                         _ => {
-                            panic!("Not an indexable object");
+                            return Err("Not an indexable object");
                         }
                     }
                 }
@@ -750,6 +748,8 @@ impl<'a> VM<'a> {
                 }
             }
         }
+
+        Ok(string_result)
     }
 
     pub fn new(code: Vec<Bytecode>, execution_stack:  &'a mut Stack, globals: &'a mut HashMap<u16, Value>, gc: &'a mut GC, heap_manager: Rc<RefCell<HeapManager>>) -> Self {

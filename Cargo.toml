@@ -1,7 +1,0 @@
-[package]
-name = "pantera"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-pantera-cli = { path = "src/pantera-cli" }

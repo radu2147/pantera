@@ -8,18 +8,12 @@ use crate::runtime_context::RuntimeContext;
 
 pub const GC_RATE: f64 = 0.8;
 
-pub struct GC {
+pub(crate) struct GC {
     pub heap_manager: Rc<RefCell<HeapManager>>,
     pub max_heap_size: usize
 }
 
 impl GC {
-    pub fn new(heap_manager: Rc<RefCell<HeapManager>>, max_heap_size: usize) -> Self {
-        Self {
-            heap_manager,
-            max_heap_size
-        }
-    }
     fn mark(&self, context: &RuntimeContext) -> HashMap<Ptr, bool> {
         let mut iterable_objects = self.heap_manager.borrow().objects.clone();
 

@@ -1,0 +1,12 @@
+[package]
+name = "pantera"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Clap
+clap = { version = "4.5.13" }
+clap_derive = { version = "4.0.0-rc.1" }
+
+# Internal modules
+pantera-vm = { path = "../pantera-vm" }
