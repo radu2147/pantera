@@ -17,19 +17,19 @@ pub struct Options {
     pub max_heap_size: usize
 }
 
-pub fn execute(string: &str) -> Result<Vec<String>, &'static str> {
+pub fn execute(string: &str) -> Result<Vec<String>, String> {
     let max_heap_size = 10 * 1024;
     execute_with_options(string, Options { max_heap_size })
 }
 
-pub fn execute_with_options(string: &str, options: Options) -> Result<Vec<String>, &'static str> {
+pub fn execute_with_options(string: &str, options: Options) -> Result<Vec<String>, String> {
     let lexer = Lexer::new(&string);
     let parser = Parser::new(lexer.scan_tokens().unwrap());
 
     let heap_manager = Rc::new(RefCell::new(HeapManager::new(options.max_heap_size)));
 
     let compiler = Compiler::new(Rc::clone(&heap_manager));
-    let code = compiler.compile(parser);
+    let code = compiler.compile(parser)?;
     let mut execution_stack = Stack::init();
     let mut globals = init_vm_globals();
     let mut gc = GC {

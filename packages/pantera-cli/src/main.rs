@@ -25,7 +25,6 @@ pub fn execute_cli_with_options(string: &str, options: Options) {
             println!("{}", string.join("\n"));
         },
         Err(err) => {
-            println!("Pantera Error:");
             println!("{err}");
         }
     }

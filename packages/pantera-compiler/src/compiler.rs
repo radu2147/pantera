@@ -45,11 +45,18 @@ impl Compiler {
             std_lib
         }
     }
-    pub fn compile(mut self, mut parser: Parser) -> Vec<Bytecode> {
-        let program = parser.parse_program().unwrap();
-        program.into_iter().for_each(|p| p.visit_g(&mut self));
+    pub fn compile(mut self, mut parser: Parser) -> Result<Vec<Bytecode>, String> {
+        match parser.parse_program() {
+           Ok(program) => {
+               program.into_iter().for_each(|p| p.visit_g(&mut self));
 
-        self.code
+               Ok(self.code)
+           }
+            Err(e) => {
+                Err(e.get_message())
+            }
+        }
+
     }
 }
 
