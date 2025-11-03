@@ -11,6 +11,7 @@ use crate::env::Env;
 use pantera_heap::heap::HeapManager;
 use pantera_heap::types::Type;
 use pantera_std::init_compiler_globals;
+use crate::semantic::run_all_semantic_checks;
 
 #[derive(Debug, Clone)]
 pub enum Context {
@@ -28,7 +29,6 @@ pub struct Compiler {
     pub context: Context,
     pub globals: HashMap<String, u16>,
     pub active_func_args: HashMap<String, Vec<String>>,
-    std_lib: HashMap<String, u16>,
 }
 
 impl Compiler {
@@ -39,15 +39,15 @@ impl Compiler {
             code: vec![],
             env: Box::new(Env::new()),
             context: Context::Global,
-            globals: std_lib.clone(),
+            globals: std_lib,
             active_func_args: HashMap::new(),
-            heap_manager,
-            std_lib
+            heap_manager
         }
     }
     pub fn compile(mut self, mut parser: Parser) -> Result<Vec<Bytecode>, String> {
         match parser.parse_program() {
            Ok(program) => {
+               run_all_semantic_checks(&program)?;
                program.into_iter().for_each(|p| p.visit_g(&mut self));
 
                Ok(self.code)
@@ -185,9 +185,6 @@ impl IntoExpressionVisitorMut for Compiler {
         self.visit_expression(value.value);
         match value.assignee {
             Expression::Identifier(ident) => {
-                if self.std_lib.contains_key(&ident) {
-                    panic!("Cannot reassign a variable with name from std lib");
-                }
                 let var = self.env.get_variable(&ident);
                 if let Some(variable) = var {
                     if variable.is_constant {
@@ -302,9 +299,6 @@ impl IntoStatementVisitorMut for Compiler {
     }
 
     fn visit_break_statement(&mut self) {
-        if self.break_stmt.is_empty() {
-            panic!("Break statement outside loop is not allowed");
-        }
         self.emit_byte(OP_JUMP);
         let cont_ind = self.break_stmt.len() - 1;
         if let Some(cont) = self.break_stmt.get_mut(cont_ind) {
@@ -383,9 +377,6 @@ impl IntoStatementVisitorMut for Compiler {
     }
 
     fn visit_declaration_statement(&mut self, stmt: DeclarationStatement) {
-        if self.std_lib.contains_key(&stmt.variable) {
-            panic!("Cannot declare a variable with a name from std lib");
-        }
         if matches!(self.context, Context::Global) {
             if let Some(val) = stmt.value {
                 self.visit_expression(val);

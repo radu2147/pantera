@@ -63,7 +63,9 @@ pub trait ExpressionVisitorMut {
     fn visit_assignment_expression(&mut self, value: &AssignmentExpression);
     fn visit_binary_expression(&mut self, value: &BinaryExpression);
     fn visit_unary_expression(&mut self, value: &UnaryExpression);
-    fn visit_group_expression(&mut self, value: &GroupExpression);
+    fn visit_group_expression(&mut self, value: &GroupExpression) {
+        self.visit_expression(&value.expr);
+    }
     fn visit_member_expression(&mut self, value: &MemberExpression);
     fn visit_object_expression(&mut self ,value: &ObjectExpression);
     fn visit_array_expression(&mut self, value: &ArrayExpression);

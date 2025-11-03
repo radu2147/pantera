@@ -94,15 +94,25 @@ pub trait StatementVisitorMut {
         }
     }
 
-    fn visit_function_body(&mut self, stmt: &BlockStatement);
+    fn visit_function_body(&mut self, stmt: &BlockStatement) {
+        stmt.statements.iter().for_each(|smt| {
+            self.visit_local_statement(smt);
+        })
+    }
     fn visit_function_declaration(&mut self, func_dec: &FunctionDeclarationStatement);
     fn visit_break_statement(&mut self);
     fn visit_print_statement(&mut self, stmt: &PrintStatement);
-    fn visit_block_statement(&mut self, stmt: &BlockStatement);
+    fn visit_block_statement(&mut self, stmt: &BlockStatement) {
+        stmt.statements.iter().for_each(|stm| self.visit_local_statement(stm));
+    }
     fn visit_expression_statement(&mut self, stmt: &ExpressionStatement);
     fn visit_return_statement(&mut self, stmt: &ReturnStatement);
     fn visit_if_statement(&mut self, stmt: &IfStatement);
     fn visit_loop_statement(&mut self, stmt: &LoopStatement);
     fn visit_declaration_statement(&mut self, stmt: &DeclarationStatement);
-    fn visit_multi_declaration(&mut self, stmt: &MultiDeclarationStatement);
+    fn visit_multi_declaration(&mut self, stmt: &MultiDeclarationStatement) {
+        for decl in &stmt.declarations {
+            self.visit_declaration_statement(decl);
+        }
+    }
 }
