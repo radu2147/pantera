@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 use pantera_ast::expression::{ArrayExpression, AssignmentExpression, BinaryExpression, CallExpression, Expression, MemberExpression, ObjectExpression, UnaryExpression};
 use pantera_ast::expression_visitor::ExpressionVisitorMut;
 use pantera_ast::statement::{DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, PrintStatement, ReturnStatement};
@@ -9,11 +9,11 @@ use crate::semantic::check::Check;
 
 pub struct DeclarationCheck {
     pub errors: Vec<CompilerError>,
-    std_lib: Rc<HashMap<String, u16>>,
+    std_lib: Arc<HashMap<String, u16>>,
 }
 
 impl DeclarationCheck {
-    pub fn new(std_lib: Rc<HashMap<String, u16>>) -> Self {
+    pub fn new(std_lib: Arc<HashMap<String, u16>>) -> Self {
         Self {
             errors: vec![],
             std_lib

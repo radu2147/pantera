@@ -1,4 +1,5 @@
-use std::rc::Rc;
+use std::sync::Arc;
+use std::thread;
 use pantera_ast::statement::GlobalStatement;
 use pantera_ast::statement_visitor::StatementVisitorMut;
 use pantera_std::init_compiler_globals;
@@ -13,7 +14,7 @@ mod check;
 mod break_statement_check;
 mod return_statement_check;
 
-fn run_semantic_check<'a, T: StatementVisitorMut + Check>(stmts: &Vec<GlobalStatement>, mut check: T) -> Vec<CompilerError> {
+fn run_semantic_check<T: StatementVisitorMut + Check>(stmts: &Vec<GlobalStatement>, mut check: T) -> Vec<CompilerError> {
     stmts.iter().for_each(|stmt|{
         stmt.visit(&mut check);
     });
@@ -22,12 +23,22 @@ fn run_semantic_check<'a, T: StatementVisitorMut + Check>(stmts: &Vec<GlobalStat
 }
 
 pub fn run_all_semantic_checks(stmts: &Vec<GlobalStatement>) -> Result<(), String> {
-    let std_lid = Rc::new(init_compiler_globals());
-    let errors = vec![
-        run_semantic_check(stmts, DeclarationCheck::new(Rc::clone(&std_lid))),
-        run_semantic_check(stmts, BreakStatementCheck::new()),
-        run_semantic_check(stmts, ReturnStatementCheck::new())
-    ].into_iter().flatten().fold(String::new(), |acc, el| {
+    let mut results = Vec::new();
+
+    thread::scope(|s| {
+        let std_lid = Arc::new(init_compiler_globals());
+        let h1 = s.spawn(move || run_semantic_check(stmts, DeclarationCheck::new(Arc::clone(&std_lid))));
+        let h2 = s.spawn(move || run_semantic_check(stmts, BreakStatementCheck::new()));
+        let h3 = s.spawn(move || run_semantic_check(stmts, ReturnStatementCheck::new()));
+
+        results.push(h1.join().unwrap());
+        results.push(h2.join().unwrap());
+        results.push(h3.join().unwrap());
+    });
+
+    let errors =
+        results
+        .into_iter().flatten().fold(String::new(), |acc, el| {
         return acc + "\n" + &el.get_message()
     });
 
