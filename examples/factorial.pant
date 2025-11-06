@@ -1,0 +1,9 @@
+fun compute(n)factorial {
+    if n <= 1 {
+        return 1;
+    }
+
+    return n * compute(n-1)factorial;
+}
+
+print compute(6)factorial;

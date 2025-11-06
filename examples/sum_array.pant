@@ -1,0 +1,10 @@
+fun compute(arr)sum {
+    var suma = 0;
+    loop arr as el {
+        suma = suma + el;
+    }
+
+    return suma;
+}
+
+print compute([1,2,3,4])sum;
