@@ -175,6 +175,7 @@ pub enum Operator {
     Minus,
     Pow,
     Mul,
+    Mod,
     Div
 }
 

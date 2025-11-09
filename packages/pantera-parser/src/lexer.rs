@@ -243,6 +243,10 @@ impl Lexer {
                 typ: TokenType::Reverse,
                 line,
             }),
+            "mod" => Some(Token {
+               typ: TokenType::Mod,
+                line,
+            }),
             "if" => Some(Token {
                 typ: TokenType::If,
                 line,
@@ -615,6 +619,13 @@ mod tests {
         let Ok(tokens)= lexer.scan_tokens() else { panic!("Something really went wrong") };
         assert_eq!(tokens.get(3).unwrap().typ, TokenType::Comma);
         assert_eq!(tokens.get(5).unwrap().typ, TokenType::Comma);
+    }
+
+    #[test]
+    fn can_match_mod() {
+        let lexer = Lexer::new("x mod 2");
+        let Ok(tokens)= lexer.scan_tokens() else { panic!("Something really went wrong") };
+        assert_eq!(tokens.get(1).unwrap().typ, TokenType::Mod);
     }
 
     #[test]

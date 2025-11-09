@@ -1,3 +1,5 @@
+use pantera_ast::expression::Operator;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub line: u128,
@@ -36,6 +38,7 @@ pub enum TokenType {
     Else,
     Is,
     Not,
+    Mod,
     Fun,
     Loop,
     Reverse,
@@ -51,4 +54,16 @@ pub enum TokenType {
     Break,
     Eof,
     Colon
+}
+
+impl From<TokenType> for Operator {
+    fn from(value: TokenType) -> Self {
+        match value {
+            TokenType::Mod => Operator::Mod,
+            TokenType::And => Operator::And,
+            TokenType::Slash => Operator::Div,
+            TokenType::Star => Operator::Mul,
+            _ => todo!()
+        }
+    }
 }

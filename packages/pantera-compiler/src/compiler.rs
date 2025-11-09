@@ -6,7 +6,7 @@ use pantera_ast::expression_visitor::{IntoExpressionVisitorMut};
 use pantera_ast::statement::{BlockStatement, DeclarationKind, DeclarationStatement, ExpressionStatement, FunctionDeclarationStatement, IfStatement, LoopStatement, MultiDeclarationStatement, PrintStatement, ReturnStatement};
 use pantera_ast::statement_visitor::{IntoStatementVisitorMut};
 use pantera_parser::parser::Parser;
-use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY, OP_ALLOCATE_ARRAY};
+use crate::bytecode::{Bytecode, OP_ADD, OP_DIV, OP_PUSH, OP_MUL, OP_POW, OP_PRINT, OP_SUB, OP_EQ, OP_NE, OP_AND, OP_OR, OP_GE, OP_LE, OP_GR, OP_LS, OP_UNARY_SUB, OP_UNARY_NOT, OP_POP, OP_DECLARE, OP_GET, OP_SET, OP_JUMP_IF_FALSE, OP_JUMP, OP_DECLARE_GLOBAL, OP_GET_GLOBAL, OP_SET_GLOBAL, OP_END_FUNCTION, OP_CALL, OP_RETURN, OP_ALLOCATE, OP_ACCESS, OP_SET_PROPERTY, OP_ALLOCATE_ARRAY, OP_MOD};
 use crate::env::Env;
 use pantera_heap::heap::HeapManager;
 use pantera_heap::types::Type;
@@ -223,7 +223,8 @@ impl IntoExpressionVisitorMut for Compiler {
             Operator::Ge => self.emit_byte(OP_GE),
             Operator::Le => self.emit_byte(OP_LE),
             Operator::Greater => self.emit_byte(OP_GR),
-            Operator::Less => self.emit_byte(OP_LS)
+            Operator::Less => self.emit_byte(OP_LS),
+            Operator::Mod => self.emit_byte(OP_MOD)
         }
     }
 

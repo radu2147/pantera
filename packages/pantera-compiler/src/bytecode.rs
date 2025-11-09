@@ -37,6 +37,7 @@ generate_bytecode! (
     OP_GR,
     OP_LE,
     OP_LS,
+    OP_MOD,
     OP_UNARY_SUB,
     OP_UNARY_NOT,
     OP_DECLARE,

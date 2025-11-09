@@ -551,9 +551,9 @@ impl Parser{
 
     pub fn parse_factor(&mut self) -> ParserResult<Expression> {
         let mut rez = self.parse_unary()?;
-        while self.peek().typ == TokenType::Star || self.peek().typ == TokenType::Slash {
+        while self.peek().typ == TokenType::Star || self.peek().typ == TokenType::Slash || self.peek().typ == TokenType::Mod {
             let op = self.advance().unwrap();
-            let operator = if op.typ == TokenType::Slash {Operator::Div} else {Operator::Mul};
+            let operator = Operator::from(op.typ);
             rez = {
                 let right = self.parse_unary()?;
                 binary! {

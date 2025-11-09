@@ -4,7 +4,7 @@ use std::rc::Rc;
 use pantera_compiler::bytecode::{Bytecode, OP_GET_GLOBAL};
 use pantera_compiler::compiler::Compiler;
 use pantera_heap::types::Type;
-use pantera_compiler::bytecode::{OP_PUSH, OP_ALLOCATE_ARRAY, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
+use pantera_compiler::bytecode::{OP_PUSH, OP_MOD, OP_ALLOCATE_ARRAY, OP_ACCESS,OP_SET_PROPERTY, OP_ALLOCATE, OP_PRINT, OP_RETURN, OP_END_FUNCTION, OP_JUMP, OP_JUMP_IF_FALSE, OP_ADD, OP_SUB, OP_POP, OP_DIV, OP_MUL, OP_POW, OP_EQ, OP_NE, OP_AND, OP_SET, OP_SET_GLOBAL, OP_OR, OP_GE, OP_GR, OP_LE, OP_LS, OP_UNARY_NOT, OP_UNARY_SUB, OP_GET, OP_DECLARE, OP_DECLARE_GLOBAL, OP_CALL};
 use pantera_heap::heap::HeapManager;
 use pantera_heap::stack::Stack;
 use pantera_heap::value::{FunctionValue, Value};
@@ -242,6 +242,25 @@ impl<'a> VM<'a> {
                         }
                     }
                 },
+                OP_MOD => {
+                    self.advance();
+                    let val1 = self.execution_stack.pop().unwrap();
+                    let val2 = self.execution_stack.pop().unwrap();
+
+                    match val1 {
+                        Value::Number(num1) => {
+                            match val2 {
+                                Value::Number(num2) => {
+                                    self.execution_stack.push(Value::Number(num2 % num1));
+                                }
+                                _ => return Err("Mod of variables of different types is not supported".to_string())
+                            }
+                        },
+                        _ => {
+                            todo!()
+                        }
+                    }
+                }
                 OP_POW => {
                     self.advance();
                     let val1 = self.execution_stack.pop().unwrap();

@@ -1,0 +1,11 @@
+var nums = [1, 2, 3, 4, 5, 65, 75, 88];
+
+loop nums {
+    if it mod 2 is 0 {
+        print it;
+    } else {
+        print "Odd number";
+        print it;
+    }
+    print "----";
+}
