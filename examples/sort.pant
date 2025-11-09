@@ -1,0 +1,13 @@
+var a = [6,3,6,1,63,1,43,3,12,53,91,25,29];
+
+loop 0..len(a) - 1 as i {
+    loop i..len(a) as j {
+        if a's (j) < a's (i) {
+            var aux = a's (i);
+            a's (i) = a's (j);
+            a's (j) = aux;
+        }
+    }
+}
+
+print a;

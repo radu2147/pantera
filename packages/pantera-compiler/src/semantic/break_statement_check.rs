@@ -46,9 +46,10 @@ impl StatementVisitorMut for BreakStatementCheck {
     }
 
     fn visit_loop_statement(&mut self, stmt: &LoopStatement) {
+        let prev_is_loop = self.is_loop;
         self.is_loop = true;
         self.visit_local_statement(&stmt.body);
-        self.is_loop = false;
+        self.is_loop = prev_is_loop;
     }
 
     fn visit_declaration_statement(&mut self, _stmt: &DeclarationStatement) {}
