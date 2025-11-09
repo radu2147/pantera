@@ -1,0 +1,12 @@
+var car = { engine: 1.6, wheels: 4, make: "BMW" };
+
+if car's make is "BMW" {
+    print "You're lucky. You're driving a BMW with the specs:";
+    loop car as spec {
+        const key = spec's 0;
+        const value = spec's 1;
+
+        print key + ": ";
+        print value;
+    }
+}
