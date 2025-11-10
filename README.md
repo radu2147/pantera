@@ -32,7 +32,7 @@ print are_({id: 1})_and_({id:2})_equal;
 ```rust
 var a = [1,2,3];
 loop a {
-  if a mod 2 is 0 {
+  if it mod 2 is 0 {
     print it;
   }
 }
