@@ -1,5 +1,6 @@
 use std::fs::File;
-use std::io::Read;
+use std::io;
+use std::io::{Read, Write};
 use clap::Parser;
 use clap_derive::Parser;
 use pantera_vm::{execute_with_options, Options};
@@ -22,15 +23,15 @@ pub fn execute_cli(string: &str) {
 pub fn execute_cli_with_options(string: &str, options: Options) {
     match execute_with_options(string, options) {
         Ok(string) => {
-            println!("{}", string.join("\n"));
+            if !string.is_empty() {
+                println!("{}", string.join("\n"));
+            }
         },
         Err(err) => {
             println!("{err}");
         }
     }
 }
-
-
 
 pub fn run_pantera() {
     let cli = Cli::parse();
@@ -53,8 +54,37 @@ pub fn run_pantera() {
                 execute_cli_with_options(&s, Options {max_heap_size});
             }
         }
-    } else if let Some(code) = cli.code.as_deref() {
-        execute_cli(&code);
+    } else {
+        loop {
+            // Print prompt
+            print!(">> ");
+            io::stdout().flush().unwrap();
+
+            // Read a line
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(0) => {
+                    break;
+                }
+                Ok(_) => {
+                    let line = input.trim();
+
+                    if line == ":exit" {
+                        break;
+                    }
+
+                    if line.is_empty() {
+                        continue;
+                    }
+
+                    execute_cli(line);
+                }
+                Err(err) => {
+                    println!("{err}");
+                    break;
+                }
+            }
+        }
     }
 }
 
